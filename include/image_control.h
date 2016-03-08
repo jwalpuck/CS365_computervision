@@ -4,6 +4,6 @@
 
 #define IMAGE_CONTROL_H
 
-cv::Mat threshold( cv::Mat src, int threshValue ); 
+int prepImage( cv::Mat src, cv::Mat regionMap, cv::Mat centroid, cv::Mat boundingBox, int threshValue );
 
 #endif

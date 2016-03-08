@@ -16,16 +16,15 @@ LDLIBS = -lopencv_core -lopencv_highgui -lopencv_video -lopencv_imgproc
 
 BINDIR = ../bin
 
-_DEPS = 
+_DEPS = feature_code.h featureDB_ops.h image_control.h
 DEPS = $(patsubst %, $(IDIR)/%,$(_DEPS))
 
-OBJ = 
+OBJ = feature_code.o featureDB_ops.o image_control.o 2D_imgRecognition.o
 
 %.o: %.cpp $(DEPS)
 	$(CC) -c -o $@ $< $(CFLAGS)
 
-
-vidDisplay: vidDisplay.o $(DEPS)
+2D_imgRecognition: $(DEPS)
 	$(CC) $^ -o $(BINDIR)/$@ $(LDFLAGS) $(LDLIBS)
 
 

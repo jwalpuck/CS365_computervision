@@ -19,7 +19,7 @@ BINDIR = ../bin
 _DEPS = 
 DEPS = $(patsubst %, $(IDIR)/%,$(_DEPS))
 
-OBJ = feature
+OBJ = 
 
 %.o: %.cpp $(DEPS)
 	$(CC) -c -o $@ $< $(CFLAGS)
