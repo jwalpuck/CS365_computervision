@@ -11,7 +11,7 @@
 #include "segment.h"
 
 // uncomment to generate some debug statements
-#define DEBUG
+//#define DEBUG
 
 /*
  */
@@ -195,8 +195,10 @@ int locateRegions(cv::Mat &src,
   // now calculate centroids and bounding boxes
   bbox.create(numLocations, 4, CV_32SC1);
 	
-  centroid.create(numLocations, 2, CV_32SC1);
-  centroid = 0;
+  //centroid.create(numLocations, 2, CV_32SC1);
+  //centroid = 0;
+  
+  centroid = cv::Mat::zeros( numLocations, 2, CV_32SC1);
 
   for(i=0;i<numLocations;i++) {
     bbox.at<int>(i, 0) = bbox.at<int>(i, 1) = 10000;

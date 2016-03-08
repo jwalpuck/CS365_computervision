@@ -9,8 +9,8 @@ CFLAGS = -I$(IDIR)  # opencv includes are in /usr/include
 CXXFLAGS = $(CFLAGS)
 
 # Dwarf Library paths
-#LDFLAGS = -L/usr/lib64 # opencv libraries are here
-LDFLAGS = `pkg-config opencv --cflags --libs`
+LDFLAGS = -L/usr/lib64 # opencv libraries are here
+#LDFLAGS = `pkg-config opencv --cflags --libs`
 
 # Dwarf libraries
 LDLIBS = -lopencv_core -lopencv_highgui -lopencv_video -lopencv_imgproc 
