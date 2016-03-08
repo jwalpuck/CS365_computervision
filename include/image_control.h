@@ -4,6 +4,6 @@
 
 #define IMAGE_CONTROL_H
 
-int prepImage( cv::Mat src, cv::Mat regionMap, cv::Mat centroid, cv::Mat boundingBox, int threshValue );
+cv::Mat prepImage( cv::Mat &src, cv::Mat &regionMap, cv::Mat &centroid, cv::Mat &boundingBox, int threshValue );
 
 #endif

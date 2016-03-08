@@ -7,73 +7,74 @@
 
 #include <cstdio>
 #include "opencv2/opencv.hpp"
+#include "segment.h"
 #include "image_control.h"
 
 
 // Threshold the supplied source image
 // This will include:
 //   Binary Thresholding, iteratively shrink and grow, connected components analysis
-int prepImage( cv::Mat src, cv::Mat regionMap, cv::Mat centroid, cv::Mat boundingBox, int threshValue ){
-  cv::Mat binaryThresh; 
+cv::Mat prepImage( cv::Mat &src, cv::Mat &regionMap, cv::Mat &centroid, cv::Mat &boundingBox, int threshValue ){
+  cv::Mat binaryThresh, copy; 
   int i, j;
   float avg = 0;
 
   // CREATE BINARY IMAGE OF THRESHOLDED REGIONS
-  binaryThresh.create( (int)src.size().height, (int)src.size().width, src.type() ); 
-  for( i = 0; i < (int)src.size().height; i++){
-    for( j = 0; j < (int)src.size().width; j++){
-      avg = (src.at<cv::Vec3b>(cv::Point(j, i))[0] +
-	     src.at<cv::Vec3b>(cv::Point(j, i))[1] +
-	     src.at<cv::Vec3b>(cv::Point(j, i))[2]) / 3;
-      if( avg > threshValue ){
-	binaryThresh.at<cv::Vec3b>(cv::Point(j, i))[0] = 255; 
-	binaryThresh.at<cv::Vec3b>(cv::Point(j, i))[1] = 255; 
-	binaryThresh.at<cv::Vec3b>(cv::Point(j, i))[2] = 255; 
-      }else{
-	binaryThresh.at<cv::Vec3b>(cv::Point(j, i))[0] = 0;
-	binaryThresh.at<cv::Vec3b>(cv::Point(j, i))[1] = 0; 
-	binaryThresh.at<cv::Vec3b>(cv::Point(j, i))[2] = 0;
-      }
-    }
-  }
+  //Grayscale matrix
+  cv::Mat grayscaleMat (src.size(), CV_8U);
 
-  // SHRINK
-  cv::Mat shrink, elementS;
-  // 3 errosion types: rectangle(1), cross(2), ellipse(3)
-  int erosionType = 1;
-  int erosionSize = 0;
-  int n_s = 1; 
-  elementS = cv::getStructuringElement(erosionType, cv::Size( 2 * erosionSize + 1, 2 * erosionSize + 1),
-				      cv::Point(erosionSize, erosionSize ) ); 
-  // STORE IN DIFFERENT MATRICES? 
-  for( int i = 0; i < n_s; i++){
-    cv::erode( binaryThresh, shrink, elementS );
-  }
-  // GROW
+  //Convert BGR to Gray
+  cv::cvtColor( src, grayscaleMat, cv::COLOR_BGR2GRAY );
+
+  //Binary image
+  cv::Mat binaryMat(grayscaleMat.size(), grayscaleMat.type());
+
+  //Apply thresholding
+  cv::threshold(grayscaleMat, binaryThresh, 100, 255, 1);
+
+  // // SHRINK
+  // cv::Mat shrink, elementS;
+  // // 3 errosion types: rectangle(1), cross(2), ellipse(3)
+  // int erosionType = 1;
+  // int erosionSize = 0;
+  // int n_s = 5; 
+  // elementS = cv::getStructuringElement(erosionType, cv::Size( 2 * erosionSize + 1, 2 * erosionSize + 1),
+  // 				      cv::Point(erosionSize, erosionSize ) ); 
+  // // STORE IN DIFFERENT MATRICES? 
+  // for( int i = 0; i < n_s; i++){
+  //   cv::erode( binaryThresh, shrink, elementS );
+  //   shrink.copyTo(binaryThresh);
+  // }
+
+  // // GROW
   cv::Mat grow, elementG;
-  // 3 dilation types: rectangle(1), cross(2), ellipse(3)
-  int dilaType = 1;
-  int dilaSize = 0;
-  int n_g = 1; 
-  elementG = cv::getStructuringElement(dialType, cv::Size( 2 * dilaSize + 1, 2 * dialSize + 1),
-				       cv::Point(dialSize, dialSize ) ); 
+  // // 3 dilation types: rectangle(1), cross(2), ellipse(3)
+  // int dilaType = 1;
+  // int dilaSize = 0;
+  // int n_g = 8; 
+  // elementG = cv::getStructuringElement(dilaType, cv::Size( 2 * dilaSize + 1, 2 * dilaSize + 1),
+  // 				       cv::Point(dilaSize, dilaSize ) ); 
 
-  // STORE IN DIFFERENT MATRICES? 
-  for( int i = 0; i < n_g; i++){
-    cv::dilate( shrink, grow, elementG ); 
-  }
+  // // STORE IN DIFFERENT MATRICES? 
+  // for( int i = 0; i < n_g; i++){
+  //   cv::dilate( shrink, grow, elementG ); 
+  //   grow.copyTo(shrink);
+  // }
+
+  //grow = binaryThresh.clone();
+
+
   // CONNECTED COMPONENTS
-  cv::Mat size; 
-  long sizeThresh;
-  int maxLocations; 
+  cv::Mat size;
+  long sizeThresh = 2000;
+  int maxLocations = 2;
   
-  localRegions(grow, regionMap, sizeThresh, centroid, boundinbBox, size, maxLocations);
-  
-  shrink.release();
-  elementS.release();
-  grow.release();
-  elementG.release(); 
-  size.release()
-  
-  return( 0 );
+  locateRegions(binaryThresh, regionMap, sizeThresh, centroid, boundingBox, size, maxLocations);
+
+  //shrink.release();
+  //elementS.release();
+  //elementG.release(); 
+  size.release();
+
+  return(binaryThresh);
 }
