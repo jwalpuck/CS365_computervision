@@ -64,19 +64,30 @@ int main(int argc, char *argv[]) {
        }
     }
 
-    cv::rectangle( regMapDisplay, cv::Point( boundingBox.at<int>(0,0), boundingBox.at<int>(0,1)), cv::Point( boundingBox.at<int>(1,0), boundingBox.at<int>(1,1)), cv::Scalar(0, 255, 0));
-    
-    cv::circle( regMapDisplay, cv::Point(centroid.at<int>(0,0), centroid.at<int>(0,1)), 2, cv::Scalar( 255, 0, 0));
+    // Display the bounding boxes and the centroids
+    // Bounding box stored: pt1( x = 1, y = 0 ), pt2( x = 3, y = 2 )
+    // Centorid stored: pt( x = 1, y = 0 )
+    for( int i = 0; i < (int)boundingBox.size().height; i++){
+      cv::rectangle( regMapDisplay, cv::Point(  boundingBox.at<int>(i,1), boundingBox.at<int>(i,0)), cv::Point( boundingBox.at<int>(i,3), boundingBox.at<int>(i,2)), cv::Scalar(0, 255, 0));
+      cv::circle( regMapDisplay, cv::Point(centroid.at<int>(i,1), centroid.at<int>(i,0)), 2, cv::Scalar( 255, 0, 0), 3);
+    }
+    cv::imshow(boundingBoxWindowName, regMapDisplay);
 
-    cv::imshow(boundingBoxWindowName, regMapDisplay); 
+    // PRINT FOR JACK TO CHECK MY LOGIC!! 
+    //printf("BoundingBox: %d %d \n", (int)boundingBox.size().height,  (int)boundingBox.size().width);
+    //printf("Centroid: %d %d \n", (int)centroid.size().height, (int)centroid.size().width);
+    //std::cout << boundingBox << "\n";
+    //std::cout << centroid << "\n";
 
-    printf("BHeight: %d \n", (int)boundingBox.size().height);
-    printf("BWidth: %d \n", (int)boundingBox.size().width);
-    printf("Centroid: %d %d \n", (int)centroid.size().height, (int)centroid.size().width);
     
-    std::cout << boundingBox << "\n";
     // get features
+    float *features;
+    features = getFeatures( boundingBox, regionMap );
+    printf("Area: %d\n", features[0] ); 
+    printf("Ratio: %f\n", features[1]);
+    printf("Fill Ratio: %f\n", features[2] );
 
+    free(features);
     // 
 
     if(cv::waitKey(10) >= 0)
