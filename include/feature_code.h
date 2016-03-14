@@ -4,15 +4,21 @@
 
 #define FEATURE_CODE_H
 
+typedef struct{
+  char id[255];
+  float unOrientedBoundingBox;
+  float width2Height;
+  float fillRatio;
+}ObjectFeature;
 
 //  Size of bounding box
-int bbArea( cv::Mat &boundingBox);
+int bbArea( cv::Mat &boundingBox, int idx);
 
 //  width to height ratio
-float width2Height( cv::Mat &boundingBox);
+float width2Height( cv::Mat &boundingBox, int idx);
 
 //  fill ratio
-float fillRatio( cv::Mat &boundingBox, cv::Mat &regMap);
+float fillRatio( cv::Mat &boundingBox, cv::Mat &regMap, int idx);
 
 //  moments: central, primary axes**, 
 cv::Mat primaryAxis(cv::Mat &boundingBox, cv::Mat &centroid, cv::Mat &regMap);
@@ -20,6 +26,8 @@ cv::Mat primaryAxis(cv::Mat &boundingBox, cv::Mat &centroid, cv::Mat &regMap);
 //  harris features
 //  shi-tomasi features
 
-float *getFeatures(cv::Mat boundingBox, cv::Mat regionMap);
+ObjectFeature *getFeatures(cv::Mat boundingBox, cv::Mat regionMap, int closestToCenter);
+
+void printFeatures( ObjectFeature *feature);
 
 #endif

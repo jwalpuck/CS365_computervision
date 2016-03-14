@@ -35,7 +35,6 @@ int main(int argc, char *argv[]) {
   cv::namedWindow( sourceWindowName, 1); // identifies a window?
   cv::namedWindow( thresholdWindowName, 1 ); 
   cv::namedWindow( boundingBoxWindowName, 1);
-
   // MAIN LOOP
   for(;;) {
     
@@ -67,28 +66,42 @@ int main(int argc, char *argv[]) {
     // Display the bounding boxes and the centroids
     // Bounding box stored: pt1( x = 1, y = 0 ), pt2( x = 3, y = 2 )
     // Centorid stored: pt( x = 1, y = 0 )
+    // pick the one closest to the center
+    int centerObj = 0;
+    int minDistToCenter = INT_MAX;
+    int row = (int)frame.size().height / 2;
+    int col = (int)frame.size().width / 2;
+    int distance; 
+    // Find the object closest to the center of the image
     for( int i = 0; i < (int)boundingBox.size().height; i++){
-      cv::rectangle( regMapDisplay, cv::Point(  boundingBox.at<int>(i,1), boundingBox.at<int>(i,0)), cv::Point( boundingBox.at<int>(i,3), boundingBox.at<int>(i,2)), cv::Scalar(0, 255, 0));
-      cv::circle( regMapDisplay, cv::Point(centroid.at<int>(i,1), centroid.at<int>(i,0)), 2, cv::Scalar( 255, 0, 0), 3);
+      distance = (centroid.at<int>(i,1) - row) * (centroid.at<int>(i,1) - row) + (centroid.at<int>(i,0) - col) *(centroid.at<int>(i,0) - col) ;
+      if( distance < minDistToCenter ){
+	centerObj = i;
+      }
     }
+
+    cv::rectangle( regMapDisplay, cv::Point(  boundingBox.at<int>(centerObj,1), boundingBox.at<int>(centerObj,0)), cv::Point( boundingBox.at<int>(centerObj,3), boundingBox.at<int>(centerObj,2)), cv::Scalar(0, 255, 0));
+    cv::circle( regMapDisplay, cv::Point(centroid.at<int>(centerObj,1), centroid.at<int>(centerObj,0)), 2, cv::Scalar( 255, 0, 0), 3);
     cv::imshow(boundingBoxWindowName, regMapDisplay);
-
-    // PRINT FOR JACK TO CHECK MY LOGIC!! 
-    //printf("BoundingBox: %d %d \n", (int)boundingBox.size().height,  (int)boundingBox.size().width);
-    //printf("Centroid: %d %d \n", (int)centroid.size().height, (int)centroid.size().width);
-    //std::cout << boundingBox << "\n";
-    //std::cout << centroid << "\n";
-
     
     // get features
-    float *features;
-    features = getFeatures( boundingBox, regionMap );
-    printf("Area: %d\n", features[0] ); 
-    printf("Ratio: %f\n", features[1]);
-    printf("Fill Ratio: %f\n", features[2] );
+    ObjectFeature *features;
+    features = getFeatures( boundingBox, regionMap, centerObj );
+    // printFeatures( features );
 
+    
+    // Write Features to a database.
+    //writeFeatureToFile( features, "test.txt");
+    
+    // Read Feature from database/ This segfaults need to look at more closely `
+    //ObjectFeature *testFeature; 
+    //readFeatureFromFile( testFeature, "test.txt"); 
+    //printFeatures( testFeature );
+    
     free(features);
-    // 
+    //free(testFeature);
+
+    
 
     if(cv::waitKey(10) >= 0)
       break;
