@@ -6,6 +6,6 @@
 
 void writeFeatureToFile( ObjectFeature *feature, char *fileOutName );
 
-ObjectFeature *readFeatureFromFile( ObjectFeature *feature, char *fileInName ); 
+ObjectFeature *findBestFeatureResult( ObjectFeature *feature, char *fileInName ); 
 
 #endif

@@ -62,6 +62,7 @@ ObjectFeature *getFeatures( cv::Mat boundingBox, cv::Mat regionMap, int closestT
 
 // debugging tool to print an ObjectFeature Object
 void printFeatures( ObjectFeature *feature ){
+  printf("HERE\n");
   printf("Feature Name: %s\n", feature->id );
   printf("Area: %d\n", feature->unOrientedBoundingBox ); 
   printf("Ratio: %f\n", feature->width2Height);

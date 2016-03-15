@@ -35,6 +35,8 @@ int main(int argc, char *argv[]) {
   cv::namedWindow( sourceWindowName, 1); // identifies a window?
   cv::namedWindow( thresholdWindowName, 1 ); 
   cv::namedWindow( boundingBoxWindowName, 1);
+
+  int state = 0;
   // MAIN LOOP
   for(;;) {
     
@@ -87,21 +89,27 @@ int main(int argc, char *argv[]) {
     // get features
     ObjectFeature *features;
     features = getFeatures( boundingBox, regionMap, centerObj );
-    // printFeatures( features );
-
-    
-    // Write Features to a database.
-    //writeFeatureToFile( features, "test.txt");
-    
-    // Read Feature from database/ This segfaults need to look at more closely `
-    //ObjectFeature *testFeature; 
-    //readFeatureFromFile( testFeature, "test.txt"); 
-    //printFeatures( testFeature );
-    
+    if( state == 0 ){
+        
+      strncpy( features->id, "testFeature", 255); 
+      printFeatures( features );
+      
+      // Write Features to a database.
+      writeFeatureToFile( features, "test.txt");
+      
+      // Read Feature from database
+      ObjectFeature *testFeature; 
+      testFeature = findBestFeatureResult( testFeature, "test.txt");
+      printFeatures( testFeature );
+      free(testFeature);
+      state = 1; 
+    }
+    if(state == 1 ){
+      // Test that I can add to my file at will!
+      writeFeatureToFile( features, "test.txt");
+      state = 2;
+    }
     free(features);
-    //free(testFeature);
-
-    
 
     if(cv::waitKey(10) >= 0)
       break;
