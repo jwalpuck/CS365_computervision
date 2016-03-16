@@ -108,12 +108,15 @@ cv::Mat getRegionLocations( cv::Mat &boundingBox, cv::Mat &regMap, int idx ){
 // Compute mu11 
 float getCentralMoment( cv::Mat &pixelIds, cv::Mat &centroids, int idx ){
   float result = 0;
-  float tempX, tempY;
+  float tempX, tempY = 0;
   // the sum of the distances between the centroids and all other pointsin the region
   for( int i = 0; i < pixelIds.size().height; i++){
+    tempY = 0; 
+    for( int j = 0; j < pixelIds.size().height; j++){
+      tempY += pixelIds.at<float>(i,1) - centroids.at<int>(idx, 0); // y
+    }
     tempX = pixelIds.at<float>(i,0) - centroids.at<int>(idx, 1); // x
-    tempY = pixelIds.at<float>(i,1) - centroids.at<int>(idx, 0); // y
-    result += tempX * tempY; 
+    result += tempX * tempY;
   }
   return( result );
 }
