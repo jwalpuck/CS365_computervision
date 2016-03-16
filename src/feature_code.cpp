@@ -48,18 +48,25 @@ float fillRatio( cv::Mat &boundingBox, cv::Mat &regMap, int idx){
   return( count / area );
 }
 
+
+// M00
 // Need to count pixels in the region in the 
 int numPixelsInBB( cv::Mat &boundingBox, cv::Mat &regMap, int idx ){
-  int count = 0; 
+  int count = 0;
   for( int i = 0; i< regMap.size().height; i++){
     for( int j = 0; j < regMap.size().width; j++){
       if( i > boundingBox.at<int>(idx,1) && i < boundingBox.at<int>(idx, 3)
 	  && j > boundingBox.at<int>(idx, 0) && j < boundingBox.at<int>(idx, 2)){
-	if( regMap.at<int>(i, j) > 0 ){
+	if( regMap.at<int>(i, j)  == idx ){
 	  count ++;
 	}
       }
     }
+  }
+  if( debug ){
+    float area; 
+    area = bbArea( boundingBox, idx ); 
+    printf("count: %d area %f\n", count, area );
   }
   return( count );
 }
@@ -68,29 +75,31 @@ int numPixelsInBB( cv::Mat &boundingBox, cv::Mat &regMap, int idx ){
 cv::Mat getRegionLocations( cv::Mat &boundingBox, cv::Mat &regMap, int idx ){
   // This might be better to return a list of points   
   int numPoints = numPixelsInBB( boundingBox, regMap, idx);
-  int count = 0; 
+  int count = 0;
+  printf("%d numPoints \n", numPoints );
+  
   // create a list of points that are in the region
   cv::Mat regionIdxs; 
-  regionIdxs.create( numPoints, 2, CV_64FC1);
+  regionIdxs = cv::Mat::zeros( numPoints, 2, CV_64FC1);
+  
+  if( numPoints == 0 ){
+    printf(" There is no object in the frame \n");
+    exit( -1 );
+  }
  
-
   // Get the index places for points in the bounding box region
   for( int i = 0; i < regMap.size().height; i++){
     for( int j = 0; j < regMap.size().width; j++){
       if( i > boundingBox.at<int>(idx,1) && i < boundingBox.at<int>(idx, 3)
-	  && j > boundingBox.at<int>(idx, 0) && j < boundingBox.at<int>(idx, 2)){
-	if( regMap.at<int>(i, j) > 0 ){
-	  regionIdxs.at<float>(count, 0) = i;
-	  regionIdxs.at<float>(count, 1) = j;
-	 
-	  //if( debug ){
+	  && j > boundingBox.at<int>(idx, 0) && j < boundingBox.at<int>(idx, 2)
+	  && regMap.at<int>(i, j) == idx){
+	regionIdxs.at<float>(count, 0) = i;
+	regionIdxs.at<float>(count, 1) = j;
+	if( debug ){
 	  printf(" numPoints: %d count: %d x: %f y: %f \n",numPoints, count, regionIdxs.at<float>(count, 0), regionIdxs.at<float>(count,1));
-	  //}
-	   count ++ ;
 	}
+	count ++ ;
       }
-    
-
     }
   }
   return( regionIdxs );
@@ -153,7 +162,7 @@ cv::Mat transformPoints( cv::Mat &pixelIds, cv::Mat &boundingBox, cv::Mat &centr
   area =  numPixelsInBB( boundingBox, regMap, idx);
   cv::Mat  final, translationMat, transposePoints, result, resultFinal;
   double minVal, maxVal;
-  cv::Point minPt, maxPt; 
+  cv::Point minPt, maxPt;
   
   float eCos = cos( centralAxisAngle );
   float eSin = sin( centralAxisAngle );
@@ -208,6 +217,7 @@ cv::Mat transformPoints( cv::Mat &pixelIds, cv::Mat &boundingBox, cv::Mat &centr
   result.at<float>(0, 1) = resultFinal.at<float>(1, 0) + centroid.at<int>(idx, 0);
   result.at<float>(1, 0) = resultFinal.at<float>(0, 1) + centroid.at<int>(idx, 1);
   result.at<float>(1, 1) = resultFinal.at<float>(1, 1) + centroid.at<int>(idx, 0);
+
   
   return( result );
 }

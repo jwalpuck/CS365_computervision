@@ -61,9 +61,9 @@ int main(int argc, char *argv[]) {
     for( int i = 0; i < (int)regionMap.size().height; i++){
       for( int j = 0; j < (int)regionMap.size().width; j++){
     	size += regionMap.at<int>(i, j) > 0;
-     	regMapDisplay.at<cv::Vec3b>(cv::Point(j,i))[0] = regionMap.at<int>(i, j) * 0;
-     	regMapDisplay.at<cv::Vec3b>(cv::Point(j,i))[1] = regionMap.at<int>(i, j) * 0;
-     	regMapDisplay.at<cv::Vec3b>(cv::Point(j,i))[2] = (regionMap.at<int>(i, j) + 1) > 0 ? 255 : 0; 
+     	regMapDisplay.at<cv::Vec3b>(cv::Point(j,i))[0] = regionMap.at<int>(i, j) == 2 ? 255 : 0;
+     	regMapDisplay.at<cv::Vec3b>(cv::Point(j,i))[1] = regionMap.at<int>(i, j) == 1 ? 255 : 0;
+	regMapDisplay.at<cv::Vec3b>(cv::Point(j,i))[2] = (regionMap.at<int>(i, j)) == 0 ? 255 : 0; 
        }
     }
 
@@ -75,12 +75,13 @@ int main(int argc, char *argv[]) {
     int minDistToCenter = INT_MAX;
     int row = (int)frame.size().height / 2;
     int col = (int)frame.size().width / 2;
-    int distance;
+    float distance = 0;
     
     // Find the object closest to the center of the image
     for( int i = 0; i < (int)boundingBox.size().height; i++){
       distance = (centroid.at<int>(i,1) - row) * (centroid.at<int>(i,1) - row) + (centroid.at<int>(i,0) - col) *(centroid.at<int>(i,0) - col) ;
       if( distance < minDistToCenter ){
+	minDistToCenter = distance;
 	centerObj = i;
       }
     }
@@ -92,7 +93,7 @@ int main(int argc, char *argv[]) {
     // Testing different parts of the pipeline in a mock statemachine
     // State 0: creates a feature file and writes to it and then reads from it
     // State 1: writes to an already existing file at the end
-    // State 2: gets the region of pixels defined by the region map
+    // State 2: gets the region of pixels defined by the region map, trying to compute oriented bounding box
     // State 3: None
     ObjectFeature *features;
     ObjectFeature *testFeature;
@@ -154,20 +155,34 @@ int main(int argc, char *argv[]) {
       orientedBoundingBox.create((int)frame.size().height, (int)frame.size().width, frame.type());
       for( int i = 0; i < (int)orientedBoundingBox.size().height; i++){
 	for( int j = 0; j < (int)orientedBoundingBox.size().width; j++){
-	  orientedBoundingBox.at<cv::Vec3b>(cv::Point(j,i))[0] = regionMap.at<int>(i, j) * 0;
-	  orientedBoundingBox.at<cv::Vec3b>(cv::Point(j,i))[1] = (regionMap.at<int>(i, j) + 1) > 0 ? 255 : 0;
-	  orientedBoundingBox.at<cv::Vec3b>(cv::Point(j,i))[2] = regionMap.at<int>(i, j) * 0; 
+	  orientedBoundingBox.at<cv::Vec3b>(cv::Point(j,i))[0] = regionMap.at<int>(i, j) == 1 ? 255 : 0;
+	  orientedBoundingBox.at<cv::Vec3b>(cv::Point(j,i))[1] = regionMap.at<int>(i, j) == 0 ? 255 : 0;
+	  orientedBoundingBox.at<cv::Vec3b>(cv::Point(j,i))[2] = regionMap.at<int>(i, j) == 2 ? 255 : 0; 
        }
     }
-      cv::Point center, dist, distOriented;
+
+      // Draw
+      cv::Point center, disty, distx, distOriented;
       center.x = centroid.at<int>( centerObj, 1);
       center.y = centroid.at<int>( centerObj, 0);
-      dist.x =  centroid.at<int>( centerObj, 1) + 100;
-      dist.y = centroid.at<int>( centerObj, 0);
-      distOriented.x = center.x + 100 * cos( test2 );
-      distOriented.y = center.y + 100 * sin( test2 );      
-      cv::line( orientedBoundingBox, center, dist, cv::Scalar( 255, 255, 255), 2);
+      
+      disty.x =  centroid.at<int>( centerObj, 1);
+      disty.y = centroid.at<int>( centerObj, 0) + 100;
+
+      distx.x = centroid.at<int>( centerObj, 1 ) + 100;
+      distx.y = centroid.at<int>( centerObj, 0);
+      
+      distOriented.x = center.x + 100 ;
+      distOriented.y = center.y + 100 * tan( test2 );
+
+      // axes
+      cv::line( orientedBoundingBox, center, distx, cv::Scalar( 255, 255, 255), 2);
+      cv::line( orientedBoundingBox, center, disty, cv::Scalar( 255, 255, 255), 2);
+
+      // central axis
       cv::line( orientedBoundingBox, center, distOriented, cv::Scalar( 255, 255, 255), 2);
+
+      // bounding box
       cv::line( orientedBoundingBox, minMin, minMax, cv::Scalar(0,255,0), 3 );
       cv::line( orientedBoundingBox, minMax, maxMax, cv::Scalar(255,0,0), 3);
       cv::line( orientedBoundingBox, maxMax, maxMin, cv::Scalar(0,0,255), 3);
