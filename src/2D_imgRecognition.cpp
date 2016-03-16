@@ -25,8 +25,8 @@ int main(int argc, char *argv[]) {
   // open the video device
   printf(" Opening video capture\n");
   // JACK'S COMPUTER!! 
-  // capdev = new cv::VideoCapture(1);
-  capdev = new cv::VideoCapture(0);
+  capdev = new cv::VideoCapture(1);
+  //capdev = new cv::VideoCapture(0);
   if( !capdev->isOpened() ) {
     printf("Unable to open video device\n");
     return(-1);

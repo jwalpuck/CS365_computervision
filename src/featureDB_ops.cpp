@@ -12,6 +12,14 @@
 
 #define debug 0 
 
+inline float i_mean(float x, float y) {
+  return (x + y) / 2;
+}
+
+inline float i_stddev(float x, float y) {
+  return sqrt(((x - i_mean(x, y) * x - i_mean(x, y)) + (y - i_mean(x, y) * y - i_mean(x, y)))/ i_mean(x, y));
+}
+
 // NEED TO DECIDE IF WE WANT TO BUILD ONE OBJECT AT A TIME OR MANY OBJECTS AT ONE TIME
 void writeFeatureToFile( ObjectFeature *feature, char *fileOutName ){
   if( debug ){
@@ -53,6 +61,7 @@ ObjectFeature *findBestFeatureResult( ObjectFeature *feature, char *fileInName )
   
   FILE *fin = fopen( fileInName, "r+");
   int index = 0;
+  float score;
 
   // Create temporary feature to read from file
   ObjectFeature tempResult;
@@ -89,8 +98,45 @@ ObjectFeature *findBestFeatureResult( ObjectFeature *feature, char *fileInName )
       printf( "Copy 3 %f \n", result->width2Height );
       printf( "Copy 4 %f\n", result->fillRatio);
     }
+
+    score = scoreFeatures(feature, result, EUC_DIST);
   }
   
   return(result);
 }
+
+float scoreFeatures(ObjectFeature *cur, ObjectFeature *other, int distanceMetric) {
+  float score = -9999;
+
+  switch(distanceMetric) {
+  case EUC_DIST:
+    return scoreEuclidean(cur, other);
+    break;
+  case K_NEIGH:
+    //Call function
+    break;
+  default:
+    //Error
+    break;
+  }
+  
+  return score;
+}
+
+float scoreEuclidean(ObjectFeature *cur, ObjectFeature *other) {
+  float score = 0;
+  //Iterate through all features, calculating squared Euclidean distance between them
+  //UNORIENTED BOUNDING BOX
+  score += (cur->unOrientedBoundingBox - other->unOrientedBoundingBox) / i_stddev(cur->unOrientedBoundingBox, other->unOrientedBoundingBox);
+
+  //WIDTH TO HEIGHT RATIO
+  score += ((cur->width2Height - other->width2Height) * (cur->width2Height - other->width2Height)) / i_stddev(cur->width2Height, other->width2Height);
+
+  //FILL RATIO
+  score += ((cur->fillRatio - other->fillRatio) * (cur->fillRatio - other->fillRatio)) / i_stddev(cur->fillRatio, other->fillRatio);
+
+  //Others -----------
+
+  return score;
+} 
 
