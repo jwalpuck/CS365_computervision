@@ -61,7 +61,7 @@ ObjectFeature *findBestFeatureResult( ObjectFeature *feature, char *fileInName )
   
   FILE *fin = fopen( fileInName, "r+");
   int index = 0;
-  float score;
+  float score, top;
 
   // Create temporary feature to read from file
   ObjectFeature tempResult;
@@ -100,6 +100,10 @@ ObjectFeature *findBestFeatureResult( ObjectFeature *feature, char *fileInName )
     }
 
     score = scoreFeatures(feature, result, EUC_DIST);
+    if(score > max) {
+      max = score;
+      result = &tempResult;
+    }
   }
   
   return(result);
