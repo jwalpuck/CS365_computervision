@@ -20,17 +20,8 @@ float width2Height( cv::Mat &boundingBox, int idx);
 //  fill ratio
 float fillRatio( cv::Mat &boundingBox, cv::Mat &regMap, int idx);
 
-// Get the number of pixels defined by a region
-int numPixelsInBB( cv::Mat &boundingBox, cv::Mat &regMap, int idx );
 
-// Get the pixel locations of all elements in the region
-cv::Mat getRegionLocations( cv::Mat &boundingBox, cv::Mat &regMap, int idx );
-
-float getCentralMoment( cv::Mat &pixelIds, cv::Mat &centroids, int idx );
-
-float get2ndOrderMoment( cv::Mat &pixelIds, cv::Mat &boundingBox, cv::Mat &centroids, cv::Mat &regMap, int idx, int type );
-
-float getCentralAxisAngle( cv::Mat &pixelIds, cv::Mat &boundingBox, cv::Mat &centroids, cv::Mat &regMap, int idx );
+float getCentralAxisAngle( cv::Mat &regMap, cv::Mat &centroids, int idx, int regionSize );
 
 cv::Mat transformPoints( cv::Mat &pixelIds, cv::Mat &boundingBox, cv::Mat &centroid, cv::Mat &regMap, float centralAxisAngle, int idx );
 
