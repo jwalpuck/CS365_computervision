@@ -9,6 +9,12 @@ typedef struct{
   float unOrientedBoundingBox;
   float width2Height;
   float fillRatio;
+  int size;
+  float centralAxisAngle;
+  float orientedBoundingBox[8];
+  float eigenVal1;
+  float eigenVal2;
+  float excentricity; 
 }ObjectFeature;
 
 //  Size of bounding box
@@ -20,15 +26,15 @@ float width2Height( cv::Mat &boundingBox, int idx);
 //  fill ratio
 float fillRatio( cv::Mat &boundingBox, cv::Mat &regMap, int idx);
 
+int getRegionSize( cv::Mat &regMap, int idx );
 
 float *getCentralAxisAngle( cv::Mat &regMap, cv::Mat &centroids, int idx, int regionSize );
 
-cv::Mat transformPoints( cv::Mat &pixelIds, cv::Mat &boundingBox, cv::Mat &centroid, cv::Mat &regMap, float centralAxisAngle, int idx );
+ObjectFeature *getFeatures(cv::Mat &boundingBox, cv::Mat &regionMap, cv::Mat &centroids, int closestToCenter, int regionSize);
 
-//  harris features
-//  shi-tomasi features
+void displayProcess( ObjectFeature *feature, cv::Mat &boundingBox, cv::Mat &regionMap,cv::Mat &centroid, cv::Mat &frame, cv::Mat &thresh, int idx);
 
-ObjectFeature *getFeatures(cv::Mat boundingBox, cv::Mat regionMap, int closestToCenter);
+void destroyDisplay( );
 
 void printFeatures( ObjectFeature *feature);
 
