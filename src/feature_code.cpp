@@ -53,10 +53,11 @@ float fillRatio( cv::Mat &boundingBox, cv::Mat &regMap, int idx){
 float *getCentralAxisAngle( cv::Mat &regMap, cv::Mat &centroids, int idx, int regionSize ){
   float dx, dy;
   float mu20, mu02, mu11 = 0;
-  float centralAxis; 
+  float centralAxis;
+  float eigenVal1, eigenVal2, excentricity; 
   cv::Mat centerBasedObjPts; 
 
-  float *result = (float *)malloc(sizeof(float) * 5 ); 
+  float *result = (float *)malloc(sizeof(float) * 8 ); 
   // --------------------------- Get the central angle --------------------------------------
   centerBasedObjPts.create( regionSize, 2, CV_64FC1 );
   
@@ -81,6 +82,9 @@ float *getCentralAxisAngle( cv::Mat &regMap, cv::Mat &centroids, int idx, int re
     }
   }
   centralAxis = 0.5 * atan2( (2 * mu11),  ( mu20 - mu02 ));
+  eigenVal1 = (( mu20 + mu02 ) / 2) + (sqrt( 4 * mu11 * mu11 + ( mu20 - mu02 ))/ 2);
+  eigenVal2 =  (( mu20 + mu02 ) / 2) - (sqrt( 4 * mu11 * mu11 + ( mu20 - mu02 ))/ 2);
+  excentricity = sqrt( 1 - eigenVal1 / eigenVal2 ); 
   
   //------------------------------ Get oriented bounding box ----------------------------------
   float eCos, eSin;
@@ -98,15 +102,30 @@ float *getCentralAxisAngle( cv::Mat &regMap, cv::Mat &centroids, int idx, int re
     float tempY = centerBasedObjPts.at<float>(t, 1); 
     x = tempX * eCos - tempY * eSin; 
     y = tempX * eSin + tempY * eCos;
+
     // find the min and max X
-    if( x < minx && y < miny ){
+    /*if( x < minx && y < miny ){
       minx = x;
       miny = y;
     }
     if( x > maxx && y > maxy){
       maxx = x;
       maxy = y;
+      }*/
+    
+    if( x < minx ) {
+      minx = x;
+      miny = y;
+    }else if ( x > maxx ){
+      maxx = x;
+      maxy = y;
     }
+
+    /*if( y < miny ){
+      miny = y;
+    }else if ( y > maxy ){
+      maxy = y;
+      }*/
   }
 
   float imgMinx, imgMaxx, imgMiny, imgMaxy;
@@ -121,10 +140,10 @@ float *getCentralAxisAngle( cv::Mat &regMap, cv::Mat &centroids, int idx, int re
 
   // translate back to global coordinates; 
   imgMinx = centroids.at<int>(idx, 1) + imgMinx;
-  imgMiny = centroids.at<int>(idx, 0) + imgMiny;
+  imgMiny = centroids.at<int>(idx, 0) - imgMiny;
 
   imgMaxx = centroids.at<int>(idx, 1) + imgMaxx;
-  imgMaxy = centroids.at<int>(idx, 0) + imgMaxy;
+  imgMaxy = centroids.at<int>(idx, 0) - imgMaxy;
 
   //printf("TRANSLATION %f %f %f %f\n", imgMinx, imgMiny, imgMaxx, imgMaxy );
 
@@ -133,6 +152,9 @@ float *getCentralAxisAngle( cv::Mat &regMap, cv::Mat &centroids, int idx, int re
   result[2] = imgMiny;
   result[3] = imgMaxx;
   result[4] = imgMaxy;
+  result[5] = eigenVal1;
+  result[6] = eigenVal2;
+  result[7] = excentricity;
   
 
   return( result );
