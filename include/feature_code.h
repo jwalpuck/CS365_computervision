@@ -21,7 +21,7 @@ float width2Height( cv::Mat &boundingBox, int idx);
 float fillRatio( cv::Mat &boundingBox, cv::Mat &regMap, int idx);
 
 
-float getCentralAxisAngle( cv::Mat &regMap, cv::Mat &centroids, int idx, int regionSize );
+float *getCentralAxisAngle( cv::Mat &regMap, cv::Mat &centroids, int idx, int regionSize );
 
 cv::Mat transformPoints( cv::Mat &pixelIds, cv::Mat &boundingBox, cv::Mat &centroid, cv::Mat &regMap, float centralAxisAngle, int idx );
 
