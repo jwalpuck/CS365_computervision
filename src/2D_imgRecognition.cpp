@@ -157,37 +157,26 @@ int main(int argc, char *argv[]) {
       // central axis
       cv::line( orientedBoundingBox, center, distOriented, cv::Scalar( 255, 255, 255), 2);
       
-      cv::Point minMin, maxMax, minMax, maxMin;
-      minMin.x = test2[1];
-      minMin.y = test2[2];
+      cv::Point p1, p2, p3, p4;
+      p1.x = test2[1]; // p1 is the minx position
+      p1.y = test2[2];
 
-      maxMax.x = test2[3];
-      maxMax.y = test2[4];
+      p2.x = test2[3]; // p2 is the miny position
+      p2.y = test2[4];
 
-      //maxMin.x = test2[3];
-      //maxMin.y = test2[2];
+      p3.x = test2[5]; // p3 is the maxx position
+      p3.y = test2[6];
 
-      //minMax.x = test2[1];
-      //minMax.y = test2[4];
+      p4.x = test2[7]; // p4 is the maxy position
+      p4.y = test2[8];
       
-      maxMin.x = test2[1] + ( test2[3] - test2[1]) * cos( test2[0] ) ;
-      maxMin.y = test2[2] - (test2[2] - test2[2])* sin( test2[0] ) ;
-
-      minMax.x = test2[1] + (test2[3] - test2[3]) * cos( test2[0]);
-      minMax.y = test2[2] - (test2[4] - test2[2]) * sin( test2[0]);
-
-      
-      //printf("1 X: %f Y: %f \n", test2[1], test2[2]); 
-      //printf("2 X: %f Y: %f \n", test2[3], test2[4]);
-      // printf("3 X: %f Y: %f \n",test2[3] + test2[3] * cos( test2[0] ) , test2[2] - test2[2] * sin( test2[0] )  );
-      //printf("4 X: %f Y: %f \n", test2[1] + test2[3] * cos( test2[0]) ,test2[4] - test2[4] * sin( test2[0]) ); 
       
       // bounding box
-      cv::line( orientedBoundingBox, minMin, maxMax, cv::Scalar( 0, 255, 255), 3);
-      cv::line( orientedBoundingBox, minMin, minMax, cv::Scalar(0,255,0), 3 );
-      cv::line( orientedBoundingBox, minMax, maxMax, cv::Scalar(255,0,0), 3);
-      cv::line( orientedBoundingBox, maxMax, maxMin, cv::Scalar(0,0,255), 3);
-      cv::line( orientedBoundingBox, maxMin, minMin, cv::Scalar(255,0,255), 3);
+      //cv::line( orientedBoundingBox, minMin, maxMax, cv::Scalar( 0, 255, 255), 3);
+      cv::line( orientedBoundingBox, p1, p2, cv::Scalar(0, 255, 255), 3 );
+      cv::line( orientedBoundingBox, p2, p3, cv::Scalar(0, 255, 255), 3);
+      cv::line( orientedBoundingBox, p3, p4, cv::Scalar(0, 255, 255), 3);
+      cv::line( orientedBoundingBox, p4, p1, cv::Scalar(0, 255, 255), 3);
       imshow( orientedBoundingBoxWindowName, orientedBoundingBox);
       // cleanup the things created. 
       free(features);

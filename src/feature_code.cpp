@@ -57,7 +57,7 @@ float *getCentralAxisAngle( cv::Mat &regMap, cv::Mat &centroids, int idx, int re
   float eigenVal1, eigenVal2, excentricity; 
   cv::Mat centerBasedObjPts; 
 
-  float *result = (float *)malloc(sizeof(float) * 8 ); 
+  float *result = (float *)malloc(sizeof(float) * 12 ); 
   // --------------------------- Get the central angle --------------------------------------
   centerBasedObjPts.create( regionSize, 2, CV_64FC1 );
   
@@ -88,7 +88,8 @@ float *getCentralAxisAngle( cv::Mat &regMap, cv::Mat &centroids, int idx, int re
   
   //------------------------------ Get oriented bounding box ----------------------------------
   float eCos, eSin;
-  float minx, miny, maxx, maxy; 
+  float minx, miny, maxx, maxy;
+  float minXY, minYX, maxXY, maxYX;
   int t;
 
   eCos = cos( centralAxis );
@@ -104,57 +105,72 @@ float *getCentralAxisAngle( cv::Mat &regMap, cv::Mat &centroids, int idx, int re
     y = tempX * eSin + tempY * eCos;
 
     // find the min and max X
-    /*if( x < minx && y < miny ){
-      minx = x;
-      miny = y;
-    }
-    if( x > maxx && y > maxy){
-      maxx = x;
-      maxy = y;
-      }*/
-    
     if( x < minx ) {
       minx = x;
-      miny = y;
+      minXY = y;
     }else if ( x > maxx ){
       maxx = x;
-      maxy = y;
+      maxXY = y;
     }
 
-    /*if( y < miny ){
+    if( y < miny ){
       miny = y;
+      minYX = x; 
     }else if ( y > maxy ){
       maxy = y;
-      }*/
+      maxYX = x;
+    }
+    //printf("PTS: %f %f %f %f %f %f %f %f \n", minx, minXY, minYX, miny, maxx, maxXY, maxYX, maxy ); 
   }
 
   float imgMinx, imgMaxx, imgMiny, imgMaxy;
+  float imgMinXY, imgMaxXY, imgMinYX, imgMaxYX;
   //rotate the min and max points back
-  imgMinx = minx * eCos + miny * eSin;
-  imgMiny = miny * eCos -  minx * eSin;
+  eSin = sin( centralAxis );
+  eCos = cos( centralAxis );
+  
+  imgMinx = minx * eCos + minXY * eSin;
+  imgMinXY = minXY * eCos - minx * eSin; 
 
-  imgMaxx = maxx *eCos + maxy * eSin;
-  imgMaxy = maxy * eCos - maxx * eSin;
+  imgMinYX = minYX * eCos +  miny * eSin; 
+  imgMiny = miny * eCos -  minYX * eSin;
+
+  imgMaxx = maxx * eCos + maxXY * eSin;
+  imgMaxXY = maxXY * eCos - maxx * eSin;
+
+  imgMaxYX = maxYX * eCos + maxy * eSin;
+  imgMaxy = maxy * eCos - maxYX * eSin;
 
   //printf(" ROTATION: %f %f %f %f\n", imgMinx, imgMiny, imgMaxx, imgMaxy );
 
   // translate back to global coordinates; 
   imgMinx = centroids.at<int>(idx, 1) + imgMinx;
+  imgMinXY = centroids.at<int>(idx, 0) - imgMinXY;
+
+  imgMinYX = centroids.at<int>(idx, 1) + imgMinYX; 
   imgMiny = centroids.at<int>(idx, 0) - imgMiny;
 
   imgMaxx = centroids.at<int>(idx, 1) + imgMaxx;
+  imgMaxXY = centroids.at<int>(idx, 0) - imgMaxXY; 
+
+  imgMaxYX = centroids.at<int>(idx, 1) + imgMaxYX; 
   imgMaxy = centroids.at<int>(idx, 0) - imgMaxy;
+  
 
   //printf("TRANSLATION %f %f %f %f\n", imgMinx, imgMiny, imgMaxx, imgMaxy );
 
   result[0] = centralAxis;
   result[1] = imgMinx;
-  result[2] = imgMiny;
-  result[3] = imgMaxx;
-  result[4] = imgMaxy;
-  result[5] = eigenVal1;
-  result[6] = eigenVal2;
-  result[7] = excentricity;
+  result[2] = imgMinXY;
+  result[3] = imgMinYX;
+  result[4] = imgMiny;
+  result[5] = imgMaxx;
+  result[6] = imgMaxXY;
+  result[7] = imgMaxYX;
+  result[8] = imgMaxy;
+  result[9] = eigenVal1;
+  result[10] = eigenVal2;
+  result[11] = excentricity;
   
 
   return( result );
