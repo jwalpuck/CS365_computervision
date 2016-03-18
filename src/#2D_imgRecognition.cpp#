@@ -136,22 +136,7 @@ int main(int argc, char *argv[]) {
       state = 2;
       printf("Central axis angle %f \n", test2 );
 
-      //translatedPts = transformPoints( regionIdxs, boundingBox, centroid, regionMap, test2, centerObj );
-      // printf("%f %f \n", translatedPts.at<float>(0, 0), translatedPts.at<float>(1,0 ));
-      // printf("%f %f \n", translatedPts.at<float>(0, 1), translatedPts.at<float>(1, 1));
 
-      /*cv::Point minMin, maxMax, minMax, maxMin;
-      minMin.x = translatedPts.at<float>(0, 0);
-      minMin.y = translatedPts.at<float>(0, 1 );
-
-      maxMax.x = translatedPts.at<float>(1, 0);
-      maxMax.y = translatedPts.at<float>(1, 1);
-
-      minMax.x = translatedPts.at<float>(0, 0);
-      minMax.y = translatedPts.at<float>(1, 1);
-
-      maxMin.x = translatedPts.at<float>(1, 0);
-      maxMin.y = translatedPts.at<float>(0, 1 );*/
       orientedBoundingBox.create((int)frame.size().height, (int)frame.size().width, frame.type());
       for( int i = 0; i < (int)orientedBoundingBox.size().height; i++){
 	for( int j = 0; j < (int)orientedBoundingBox.size().width; j++){
