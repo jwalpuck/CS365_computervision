@@ -20,12 +20,6 @@ using namespace std;
 
 int main(int argc, char *argv[]) {
 
-  //DEBUG -- test scoring
-  // test_score_euc();
-  // return;
-
-
-
   //Declare variables
   cv::VideoCapture *capdev;
   cv::Mat frame, thresh, boundingBox;
@@ -61,14 +55,11 @@ int main(int argc, char *argv[]) {
 
   //Main loop
   do {
-  //for(;;) {
-
-    //TEST
     keyPress = cv::waitKey(10);
-    //printf("Key pressed: %d\n", keyPress);
-    if(keyPress == 105) //i
+
+    if(keyPress == 105) //i to train
       state = train;
-    else if(keyPress == 106) //j
+    else if(keyPress == 106) //j to recognize
       state = recog;
 
     //Initialize loop variables
@@ -89,8 +80,6 @@ int main(int argc, char *argv[]) {
     //Create a region map with a bounding box on the centered object
     regMapDisplay.create((int)regionMap.size().height, (int)regionMap.size().width, frame.type());
     makeRegMapDisplay(regMapDisplay, regionMap, centroid, boundingBox, centerObj); //Populate the image
-    
-
     cv::imshow(thresholdWindowName, regMapDisplay);
 
     //States: idle, training, recognizing
@@ -106,15 +95,14 @@ int main(int argc, char *argv[]) {
 
       //Calculate features
       cur = (ObjectFeature *)malloc(sizeof(*cur));
-      cur = getFeatures(boundingBox, regionMap, centerObj);
+
+      //****NOTE: This last argument needs to be fixed************
+      cur = getFeatures(boundingBox, regionMap, centroid, centerObj, 99999999);
 
       //Get object label from the user
       printf("Please enter a label for the centered object in view\n");
       getline(cin, objectLabel);
-      //const char *cstr = objectLabel.c_str();
-      //char cstr[255] = {};
       std::copy(objectLabel.begin(), objectLabel.end(), cur->id);
-      //cur->id = cstr;
 
       /****/
       //NOTE TO TORRIE: We could display features here if we wanted
@@ -126,7 +114,6 @@ int main(int argc, char *argv[]) {
 
       //Clean up
       free(cur);
-      //delete [] cstr;
 
       //Move the state back to idle
       state = idle;
@@ -139,7 +126,7 @@ int main(int argc, char *argv[]) {
       
       //Calculate features
       cur = (ObjectFeature *)malloc(sizeof(*cur));
-      cur = getFeatures(boundingBox, regionMap, centerObj);
+      cur = getFeatures(boundingBox, regionMap, centroid, centerObj, 99999999);
 
       //Compare cur feature vector with DB to get the best score
       char *match = findBestFeatureResult(cur, fileName);
@@ -154,8 +141,6 @@ int main(int argc, char *argv[]) {
       state = idle;
 
       break;
-
-      //(Have running thread listening for keystrokes to change state?)
     }
 
     //Clean up frame-specific vars
@@ -164,7 +149,7 @@ int main(int argc, char *argv[]) {
     regionMap.release();
     centroid.release();
     boundingBox.release();
-    //  }
+
   }while(keyPress != 27);
 
   //Clean up outer vars
