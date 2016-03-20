@@ -75,3 +75,36 @@ cv::Mat prepImage( cv::Mat &src, cv::Mat &regionMap, cv::Mat &centroid, cv::Mat 
 
   return(grow);
 }
+
+/* Return the index of the object most centered in the frame */
+int getCenteredObject(cv::Mat &frame, cv::Mat &boundingBox, cv::Mat &centroid) {
+  int centerObj = 0;
+  int minDistToCenter = INT_MAX;
+  int row = (int)frame.size().height / 2;
+  int col = (int)frame.size().width / 2;
+  float distance = 0;
+ 
+  for( int i = 0; i < (int)boundingBox.size().height; i++){
+    distance = (centroid.at<int>(i,1) - row) * (centroid.at<int>(i,1) - row) + (centroid.at<int>(i,0) - col) *(centroid.at<int>(i,0) - col) ;
+    if( distance < minDistToCenter ){
+      minDistToCenter = distance;
+      centerObj = i;
+    }
+  }
+  return centerObj;
+}
+
+void makeRegMapDisplay(cv::Mat &regMapDisplay, cv::Mat &regionMap, cv::Mat &centroid, cv::Mat &boundingBox, int centerObj) {
+  int size = 0;
+  for( int i = 0; i < (int)regionMap.size().height; i++){
+    for( int j = 0; j < (int)regionMap.size().width; j++){
+      size += regionMap.at<int>(i, j) > 0;
+      regMapDisplay.at<cv::Vec3b>(cv::Point(j,i))[0] = regionMap.at<int>(i, j) == 2 ? 255 : 0;
+      regMapDisplay.at<cv::Vec3b>(cv::Point(j,i))[1] = regionMap.at<int>(i, j) == 1 ? 255 : 0;
+      regMapDisplay.at<cv::Vec3b>(cv::Point(j,i))[2] = (regionMap.at<int>(i, j)) == 0 ? 255 : 0; 
+    }
+  }
+
+  cv::rectangle( regMapDisplay, cv::Point(  boundingBox.at<int>(centerObj,1), boundingBox.at<int>(centerObj,0)), cv::Point( boundingBox.at<int>(centerObj,3), boundingBox.at<int>(centerObj,2)), cv::Scalar(0, 255, 0));
+  cv::circle( regMapDisplay, cv::Point(centroid.at<int>(centerObj,1), centroid.at<int>(centerObj,0)), 2, cv::Scalar( 255, 0, 0), 3);
+}

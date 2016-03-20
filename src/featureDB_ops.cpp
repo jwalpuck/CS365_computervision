@@ -10,14 +10,18 @@
 #include "feature_code.h"
 #include "featureDB_ops.h"
 
-#define debug 0 
+#define debug 0
 
 inline float i_mean(float x, float y) {
   return (x + y) / 2;
 }
 
 inline float i_stddev(float x, float y) {
-  return sqrt(((x - i_mean(x, y) * x - i_mean(x, y)) + (y - i_mean(x, y) * y - i_mean(x, y)))/ i_mean(x, y));
+  return sqrt(((x - i_mean(x, y)) * (x - i_mean(x, y))) + ((y - i_mean(x, y)) * (y - i_mean(x, y))) / i_mean(x, y));
+}
+
+inline float i_euc(float x, float y) {
+  return (x - y) / i_stddev(x, y);
 }
 
 // NEED TO DECIDE IF WE WANT TO BUILD ONE OBJECT AT A TIME OR MANY OBJECTS AT ONE TIME
@@ -53,7 +57,7 @@ void writeFeatureToFile( ObjectFeature *feature, char *fileOutName ){
 // find the best result from the database file.
 // *feature is the feature we are passing in to compare
 // *fileInName is the database file
-ObjectFeature *findBestFeatureResult( ObjectFeature *feature, char *fileInName ){
+char *findBestFeatureResult( ObjectFeature *feature, char *fileInName ){
 
   if( debug ){
     printf("reading in a file\n");
@@ -61,7 +65,8 @@ ObjectFeature *findBestFeatureResult( ObjectFeature *feature, char *fileInName )
   
   FILE *fin = fopen( fileInName, "r+");
   int index = 0;
-  float score, top;
+  float score, top, max;
+  max = -1e30;
 
   // Create temporary feature to read from file
   ObjectFeature tempResult;
@@ -91,7 +96,7 @@ ObjectFeature *findBestFeatureResult( ObjectFeature *feature, char *fileInName )
     // Would want to put some comparison operator here, classifier stuff
     // This would use feature! 
     
-    memcpy((void *)(result), (void *)&tempResult, sizeof(ObjectFeature));
+    //memcpy((void *)(result), (void *)&tempResult, sizeof(ObjectFeature));
     if( debug ){
       printf( "Copy 1 %s\n", result->id);
       printf( "Copy 2 %f \n", result->unOrientedBoundingBox);
@@ -99,14 +104,18 @@ ObjectFeature *findBestFeatureResult( ObjectFeature *feature, char *fileInName )
       printf( "Copy 4 %f\n", result->fillRatio);
     }
 
-    score = scoreFeatures(feature, result, EUC_DIST);
+    score = scoreFeatures(feature, &tempResult, EUC_DIST);
+    printf("Score of %s vs max: %f, %f\n", tempResult.id, score, max);
     if(score > max) {
+      printf("$$$ New best score! $$$\n");
       max = score;
-      result = &tempResult;
+      //result = &tempResult;
+      memcpy((void *)(result), (void *)&tempResult, sizeof(ObjectFeature));
     }
   }
   
-  return(result);
+  printf("Returning %s\n", result->id);
+  return(result->id);
 }
 
 float scoreFeatures(ObjectFeature *cur, ObjectFeature *other, int distanceMetric) {
@@ -129,18 +138,20 @@ float scoreFeatures(ObjectFeature *cur, ObjectFeature *other, int distanceMetric
 
 float scoreEuclidean(ObjectFeature *cur, ObjectFeature *other) {
   float score = 0;
-  //Iterate through all features, calculating squared Euclidean distance between them
+
+  //Iterate through all features, calculating  Euclidean distance between them
   //UNORIENTED BOUNDING BOX
-  score += (cur->unOrientedBoundingBox - other->unOrientedBoundingBox) / i_stddev(cur->unOrientedBoundingBox, other->unOrientedBoundingBox);
+  score += i_euc(cur->unOrientedBoundingBox, other->unOrientedBoundingBox);
 
   //WIDTH TO HEIGHT RATIO
-  score += ((cur->width2Height - other->width2Height) * (cur->width2Height - other->width2Height)) / i_stddev(cur->width2Height, other->width2Height);
+  score += i_euc(cur->width2Height, other->width2Height);
 
   //FILL RATIO
-  score += ((cur->fillRatio - other->fillRatio) * (cur->fillRatio - other->fillRatio)) / i_stddev(cur->fillRatio, other->fillRatio);
+  score += i_euc(cur->fillRatio,  other->fillRatio);
 
   //Others -----------
 
+  score = fabs(score) * -1;
   return score;
 } 
 
