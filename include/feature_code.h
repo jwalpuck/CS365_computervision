@@ -9,6 +9,12 @@ typedef struct{
   float unOrientedBoundingBox;
   float width2Height;
   float fillRatio;
+  int size;
+  float centralAxisAngle;
+  float orientedBoundingBox[8];
+  float eigenVal1;
+  float eigenVal2;
+  float excentricity; 
 }ObjectFeature;
 
 //  Size of bounding box
@@ -20,24 +26,15 @@ float width2Height( cv::Mat &boundingBox, int idx);
 //  fill ratio
 float fillRatio( cv::Mat &boundingBox, cv::Mat &regMap, int idx);
 
-// Get the number of pixels defined by a region
-int numPixelsInBB( cv::Mat &boundingBox, cv::Mat &regMap, int idx );
+int getRegionSize( cv::Mat &regMap, int idx );
 
-// Get the pixel locations of all elements in the region
-cv::Mat getRegionLocations( cv::Mat &boundingBox, cv::Mat &regMap, int idx );
+float *getCentralAxisAngle( cv::Mat &regMap, cv::Mat &centroids, int idx, int regionSize );
 
-float getCentralMoment( cv::Mat &pixelIds, cv::Mat &centroids, int idx );
+ObjectFeature *getFeatures(cv::Mat &boundingBox, cv::Mat &regionMap, cv::Mat &centroids, int closestToCenter, int regionSize);
 
-float get2ndOrderMoment( cv::Mat &pixelIds, cv::Mat &boundingBox, cv::Mat &centroids, cv::Mat &regMap, int idx, int type );
+void displayProcess( ObjectFeature *feature, cv::Mat &boundingBox, cv::Mat &regionMap,cv::Mat &centroid, cv::Mat &frame, cv::Mat &thresh, int idx);
 
-float getCentralAxisAngle( cv::Mat &pixelIds, cv::Mat &boundingBox, cv::Mat &centroids, cv::Mat &regMap, int idx );
-
-cv::Mat transformPoints( cv::Mat &pixelIds, cv::Mat &boundingBox, cv::Mat &centroid, cv::Mat &regMap, float centralAxisAngle, int idx );
-
-//  harris features
-//  shi-tomasi features
-
-ObjectFeature *getFeatures(cv::Mat boundingBox, cv::Mat regionMap, int closestToCenter);
+void destroyDisplay( );
 
 void printFeatures( ObjectFeature *feature);
 

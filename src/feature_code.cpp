@@ -48,192 +48,263 @@ float fillRatio( cv::Mat &boundingBox, cv::Mat &regMap, int idx){
   return( count / area );
 }
 
-
-// M00
-// Need to count pixels in the region in the 
-int numPixelsInBB( cv::Mat &boundingBox, cv::Mat &regMap, int idx ){
-  int count = 0;
-  for( int i = 0; i< regMap.size().height; i++){
-    for( int j = 0; j < regMap.size().width; j++){
-      if( i > boundingBox.at<int>(idx,1) && i < boundingBox.at<int>(idx, 3)
-	  && j > boundingBox.at<int>(idx, 0) && j < boundingBox.at<int>(idx, 2)){
-	if( regMap.at<int>(i, j)  == idx ){
-	  count ++;
-	}
+// get the number of points in the region map with the specified index
+int getRegionSize( cv::Mat &regMap, int idx ){
+  int size = 0; 
+  for( int i = 0; i < (int)regMap.size().height; i++){
+    for( int j = 0; j < (int)regMap.size().width; j++){
+      if( regMap.at<int>(i, j ) == idx ){
+	size += 1;
       }
     }
   }
-  if( debug ){
-    float area; 
-    area = bbArea( boundingBox, idx ); 
-    printf("count: %d area %f\n", count, area );
-  }
-  return( count );
+  return( size );
 }
 
-// A function to get the pixel locations for items in the region
-cv::Mat getRegionLocations( cv::Mat &boundingBox, cv::Mat &regMap, int idx ){
-  // This might be better to return a list of points   
-  int numPoints = numPixelsInBB( boundingBox, regMap, idx);
-  int count = 0;
-  printf("%d numPoints \n", numPoints );
-  
-  // create a list of points that are in the region
-  cv::Mat regionIdxs; 
-  regionIdxs = cv::Mat::zeros( numPoints, 2, CV_64FC1);
-  
-  if( numPoints == 0 ){
-    printf(" There is no object in the frame \n");
-    exit( -1 );
-  }
- 
-  // Get the index places for points in the bounding box region
-  for( int i = 0; i < regMap.size().height; i++){
-    for( int j = 0; j < regMap.size().width; j++){
-      if( i > boundingBox.at<int>(idx,1) && i < boundingBox.at<int>(idx, 3)
-	  && j > boundingBox.at<int>(idx, 0) && j < boundingBox.at<int>(idx, 2)
-	  && regMap.at<int>(i, j) == idx){
-	regionIdxs.at<float>(count, 0) = i;
-	regionIdxs.at<float>(count, 1) = j;
-	if( debug ){
-	  printf(" numPoints: %d count: %d x: %f y: %f \n",numPoints, count, regionIdxs.at<float>(count, 0), regionIdxs.at<float>(count,1));
-	}
-	count ++ ;
-      }
-    }
-  }
-  return( regionIdxs );
-}
-
-// Compute mu11 
-float getCentralMoment( cv::Mat &pixelIds, cv::Mat &centroids, int idx ){
-  float result = 0;
-  float tempX, tempY = 0;
-  // the sum of the distances between the centroids and all other pointsin the region
-  for( int i = 0; i < pixelIds.size().height; i++){
-    tempY = 0; 
-    for( int j = 0; j < pixelIds.size().height; j++){
-      tempY += pixelIds.at<float>(i,1) - centroids.at<int>(idx, 0); // y
-    }
-    tempX = pixelIds.at<float>(i,0) - centroids.at<int>(idx, 1); // x
-    result += tempX * tempY;
-  }
-  return( result );
-}
-
-// compute mu02 if type == 1
-// compute mu20 if type == 0
-float get2ndOrderMoment(cv::Mat &pixelIds, cv::Mat &boundingBox, cv::Mat &centroids, cv::Mat &regMap, int idx, int type ){
-  float area;
-  area =  numPixelsInBB( boundingBox, regMap, idx);
-  float result = 0;
-  float temp; 
-  for( int i = 0; i < pixelIds.size().height; i++){
-    if( type == 0 ){
-      temp = pixelIds.at<float>(i,0) - centroids.at<int>(idx, 1); // x
-    }else if( type == 1){
-      temp = pixelIds.at<float>(i,1) - centroids.at<int>(idx, 0); // y
-    }
-    result += (temp * temp); 
-  }
-  return( result/area );
-}
 
 // Get the angle that gives the orientation of the axis
-float getCentralAxisAngle( cv::Mat &pixelIds, cv::Mat &boundingBox, cv::Mat &centroids, cv::Mat &regMap, int idx ){
-  float result, central11, secondY, secondX, area;
-  float mu20, mu02, mu11;
-  area =  numPixelsInBB( boundingBox, regMap, idx);
-  central11 = getCentralMoment( pixelIds, centroids, idx);
-  secondX = get2ndOrderMoment( pixelIds, boundingBox, centroids, regMap, idx, 0 );
-  secondY = get2ndOrderMoment( pixelIds, boundingBox, centroids, regMap, idx, 1 );
+float *getCentralAxisAngle( cv::Mat &regMap, cv::Mat &centroids, int idx, int regionSize ){
+  float dx, dy;
+  float mu20, mu02, mu11 = 0;
+  float centralAxis;
+  float eigenVal1, eigenVal2, excentricity; 
+  cv::Mat centerBasedObjPts; 
 
-  mu20 = secondX / area - (float)(centroids.at<int>(idx,1) * centroids.at<int>(idx,1)); // x
-  mu02 = secondY / area - (float)(centroids.at<int>(idx,0) * centroids.at<int>(idx,0)); // y
-
-  printf(" %f %f \n", mu20, mu02);
-  mu11 = central11 / area - (float)(centroids.at<int>(idx,0) * centroids.at<int>(idx,1));
+  float *result = (float *)malloc(sizeof(float) * 12 ); 
+  // --------------------------- Get the central angle --------------------------------------
+  centerBasedObjPts.create( regionSize, 2, CV_64FC1 );
   
-  result = 0.5 * atan2( (2 * mu11),  ( mu02 - mu20 ));
-  return( result );
-  
-}
+  int counter = 0;
+  for( int i = 0; i < regMap.size().height; i++ ){
+    for( int j = 0; j < regMap.size().width; j++ ){
+      if( regMap.at<int>(i,j) == idx ){
+	// compute the translated position of the points
+	dx = j - centroids.at<int>(idx, 1); // x
+	dy = centroids.at<int>(idx, 0) - i; // y
+	
+	// put the translated points into a new list
+	centerBasedObjPts.at<float>(counter, 0 ) = dx;
+	centerBasedObjPts.at<float>(counter, 1 ) = dy;
 
-
-cv::Mat transformPoints( cv::Mat &pixelIds, cv::Mat &boundingBox, cv::Mat &centroid, cv::Mat &regMap, float centralAxisAngle, int idx ){
-  int area; 
-  area =  numPixelsInBB( boundingBox, regMap, idx);
-  cv::Mat  final, translationMat, transposePoints, result, resultFinal;
-  double minVal, maxVal;
-  cv::Point minPt, maxPt;
-  
-  float eCos = cos( centralAxisAngle );
-  float eSin = sin( centralAxisAngle );
-
-  printf(" Sin: %f  Cos: %f\n", eSin, eCos );
-  
-  cv::transpose( pixelIds, transposePoints );
-  if( debug ){
-    printf("P: %d %d \n", (int)pixelIds.size().height, (int)pixelIds.size().width);
-    printf("PT: %d %d \n", (int)transposePoints.size().height, (int)transposePoints.size().width);
-  }
-
-  // Create the 2 needed matrices 
-  translationMat = cv::Mat::zeros( transposePoints.size().height, transposePoints.size().width, CV_64FC1);
-  final = cv::Mat::zeros( transposePoints.size().height, transposePoints.size().width, transposePoints.type());
-
-  // Translate
-  for( int i = 0; i < transposePoints.size().width; i++){
-    translationMat.at<float>(0, i) = pixelIds.at<float>(i, 0) - centroid.at<int>(idx, 1 );
-    translationMat.at<float>(1, i) = pixelIds.at<float>(i, 1) - centroid.at<int>(idx, 0 );
-    
-    if(debug)
-      printf("T x: %f y: %f \n", translationMat.at<float>(0 ,i), translationMat.at<float>(1, i));
-  }
-  
-  // Rotate     
-  for(int i = 0; i < (int)transposePoints.size().width; i++){
-    final.at<float>(0, i) = eCos * translationMat.at<float>(0,i) + eSin * translationMat.at<float>(1,i);
-    final.at<float>(1, i) = eSin * translationMat.at<float>(0,i) + eCos * translationMat.at<float>(1,i);
-    if(debug){
-      printf("R2 x: %f y: %f \n", final.at<float>(0 ,i), final.at<float>(1, i));
+	// compute the moments
+	mu11 += dx * dy;
+	mu20 += dx * dx;
+	mu02 += dy * dy;
+	counter++; 
+      }
     }
   }
-
-  // Move back to original coords. 
-  result.create( 2, 2, CV_64FC1);
-  resultFinal.create( 2, 2, CV_64FC1);
-  cv::minMaxLoc( final, &minVal, &maxVal, &minPt, &maxPt );
-  //if( debug ){
-    printf("%f %f \n", final.at<float>(0, maxPt.x), final.at<float>(1, maxPt.x));
-    printf("%f %f \n", final.at<float>(0, minPt.x), final.at<float>(1, minPt.x));
-    //}
+  centralAxis = 0.5 * atan2( (2 * mu11),  ( mu20 - mu02 ));
+  eigenVal1 = (( mu20 + mu02 ) / 2) + (sqrt( 4 * mu11 * mu11 + ( mu20 - mu02 ))/ 2);
+  eigenVal2 =  (( mu20 + mu02 ) / 2) - (sqrt( 4 * mu11 * mu11 + ( mu20 - mu02 ))/ 2);
+  excentricity = sqrt( 1 - eigenVal1 / eigenVal2 ); 
   
-  // Rotate Back
-  resultFinal.at<float>(0, 0) = final.at<float>(0, minPt.x) * eSin + final.at<float>(1, minPt.x) * eCos;
-  resultFinal.at<float>(1, 0) = final.at<float>(0, minPt.x) * eCos + final.at<float>(1, minPt.x) * eSin;
-  resultFinal.at<float>(0, 1) = final.at<float>(0, maxPt.x) * eSin + final.at<float>(1, maxPt.x) * eCos;
-  resultFinal.at<float>(1, 1) = final.at<float>(0, maxPt.x) * eCos + final.at<float>(1, maxPt.x) * eSin;
+  //------------------------------ Get oriented bounding box ----------------------------------
+  float eCos, eSin;
+  float minx, miny, maxx, maxy;
+  float minXY, minYX, maxXY, maxYX;
+  int t;
 
-  // Translate Back: put in N x 2 matrix
-  result.at<float>(0, 0) = resultFinal.at<float>(0, 0) + centroid.at<int>(idx, 1);
-  result.at<float>(0, 1) = resultFinal.at<float>(1, 0) + centroid.at<int>(idx, 0);
-  result.at<float>(1, 0) = resultFinal.at<float>(0, 1) + centroid.at<int>(idx, 1);
-  result.at<float>(1, 1) = resultFinal.at<float>(1, 1) + centroid.at<int>(idx, 0);
+  eCos = cos( centralAxis );
+  eSin = sin( centralAxis ); 
+ 
+  minx = miny = FLT_MAX;
+  maxx = maxy = FLT_MIN;
+  for( t = 0; t < centerBasedObjPts.size().height; t++){
+    float x, y;
+    float tempX = centerBasedObjPts.at<float>(t, 0);
+    float tempY = centerBasedObjPts.at<float>(t, 1); 
+    x = tempX * eCos - tempY * eSin; 
+    y = tempX * eSin + tempY * eCos;
 
+    // find the min and max X
+    if( x < minx ) {
+      minx = x;
+      minXY = y;
+    }else if ( x > maxx ){
+      maxx = x;
+      maxXY = y;
+    }
+
+    if( y < miny ){
+      miny = y;
+      minYX = x; 
+    }else if ( y > maxy ){
+      maxy = y;
+      maxYX = x;
+    }
+    //printf("PTS: %f %f %f %f %f %f %f %f \n", minx, minXY, minYX, miny, maxx, maxXY, maxYX, maxy ); 
+  }
+
+  float imgMinx, imgMaxx, imgMiny, imgMaxy;
+  float imgMinXY, imgMaxXY, imgMinYX, imgMaxYX;
+  //rotate the min and max points back
+  eSin = sin( centralAxis );
+  eCos = cos( centralAxis );
   
+  imgMinx = minx * eCos + minXY * eSin;
+  imgMinXY = minXY * eCos - minx * eSin; 
+
+  imgMinYX = minYX * eCos +  miny * eSin; 
+  imgMiny = miny * eCos -  minYX * eSin;
+
+  imgMaxx = maxx * eCos + maxXY * eSin;
+  imgMaxXY = maxXY * eCos - maxx * eSin;
+
+  imgMaxYX = maxYX * eCos + maxy * eSin;
+  imgMaxy = maxy * eCos - maxYX * eSin;
+
+  //printf(" ROTATION: %f %f %f %f\n", imgMinx, imgMiny, imgMaxx, imgMaxy );
+
+  // translate back to global coordinates; 
+  imgMinx = centroids.at<int>(idx, 1) + imgMinx;
+  imgMinXY = centroids.at<int>(idx, 0) - imgMinXY;
+
+  imgMinYX = centroids.at<int>(idx, 1) + imgMinYX; 
+  imgMiny = centroids.at<int>(idx, 0) - imgMiny;
+
+  imgMaxx = centroids.at<int>(idx, 1) + imgMaxx;
+  imgMaxXY = centroids.at<int>(idx, 0) - imgMaxXY; 
+
+  imgMaxYX = centroids.at<int>(idx, 1) + imgMaxYX; 
+  imgMaxy = centroids.at<int>(idx, 0) - imgMaxy;
+  
+
+  //printf("TRANSLATION %f %f %f %f\n", imgMinx, imgMiny, imgMaxx, imgMaxy );
+
+  result[0] = centralAxis;
+  result[1] = imgMinx;
+  result[2] = imgMinXY;
+  result[3] = imgMinYX;
+  result[4] = imgMiny;
+  result[5] = imgMaxx;
+  result[6] = imgMaxXY;
+  result[7] = imgMaxYX;
+  result[8] = imgMaxy;
+  result[9] = eigenVal1;
+  result[10] = eigenVal2;
+  result[11] = excentricity;
+  
+  //printf("CENTRAL AXIS ANGLE %f \n", centralAxis );
   return( result );
 }
 
+
 // Parent function to call all the possible feature options on each object placed into the database 
-ObjectFeature *getFeatures( cv::Mat boundingBox, cv::Mat regionMap, int closestToCenter){
+ObjectFeature *getFeatures( cv::Mat &boundingBox, cv::Mat &regionMap, cv::Mat &centroids, int closestToCenter, int regionSize){
   ObjectFeature *results = (ObjectFeature *)malloc(sizeof(ObjectFeature));
   results->id[0] = '\0';
   results->unOrientedBoundingBox = bbArea( boundingBox, closestToCenter );
   results->width2Height = width2Height( boundingBox, closestToCenter );
   results->fillRatio = fillRatio( boundingBox, regionMap, closestToCenter );
-  
+  results->size = regionSize; 
+  float *tempOrientedInfo;
+  tempOrientedInfo = getCentralAxisAngle( regionMap, centroids, closestToCenter, regionSize);
+  results->centralAxisAngle = tempOrientedInfo[0];
+  results->orientedBoundingBox[0] = tempOrientedInfo[1];
+  results->orientedBoundingBox[1] = tempOrientedInfo[2];
+  results->orientedBoundingBox[2] = tempOrientedInfo[3];
+  results->orientedBoundingBox[3] = tempOrientedInfo[4];
+  results->orientedBoundingBox[4] = tempOrientedInfo[5];
+  results->orientedBoundingBox[5] = tempOrientedInfo[6];
+  results->orientedBoundingBox[6] = tempOrientedInfo[7];
+  results->orientedBoundingBox[7] = tempOrientedInfo[8];
+  results->eigenVal1 = tempOrientedInfo[9];
+  results->eigenVal2 = tempOrientedInfo[10];
+  results->excentricity = tempOrientedInfo[11];
+
+  free( tempOrientedInfo );
   return(results);
+}
+
+// SHOULD PROBABLY CHANGE THIS TO PULL UP ONE WINDOW
+// HCONCAT or VCONCAT the matrices. 
+void displayProcess( ObjectFeature *feature, cv::Mat &boundingBox, cv::Mat &regionMap,cv::Mat &centroid, cv::Mat &frame, cv::Mat &thresh, int idx){
+  cv::Mat regMapDisplay, orientedBoundingBox;
+  // Naming the Windows
+  char sourceWindowName[255] = "Original Window";
+  char thresholdWindowName[255] = "Threshold Window"; 
+  char boundingBoxWindowName[255] = "Bounding Box Window";
+  char orientedBoundingBoxWindowName[255] = "Oriented Bounding Box Window";
+  
+  // SET UP VIEWING WINDOWS
+  cv::namedWindow( sourceWindowName, 1); // identifies a window?
+  cv::namedWindow( thresholdWindowName, 1 ); 
+  cv::namedWindow( boundingBoxWindowName, 1);
+  cv::namedWindow( orientedBoundingBoxWindowName, 1);
+
+  //---------------------------------- thresholded image ---------------------------------
+  regMapDisplay.create((int)regionMap.size().height, (int)regionMap.size().width, frame.type());
+  for( int i = 0; i < (int)regionMap.size().height; i++){
+    for( int j = 0; j < (int)regionMap.size().width; j++){
+      regMapDisplay.at<cv::Vec3b>(cv::Point(j,i))[0] = regionMap.at<int>(i, j) == 2 ? 255 : 0;
+      regMapDisplay.at<cv::Vec3b>(cv::Point(j,i))[1] = regionMap.at<int>(i, j) == 1 ? 255 : 0;
+      regMapDisplay.at<cv::Vec3b>(cv::Point(j,i))[2] = (regionMap.at<int>(i, j)) == 0 ? 255 : 0; 
+    }
+  }
+
+  cv::rectangle( regMapDisplay, cv::Point(  boundingBox.at<int>(idx,1), boundingBox.at<int>(idx,0)), cv::Point( boundingBox.at<int>(idx,3), boundingBox.at<int>(idx,2)), cv::Scalar(0, 255, 0));
+  cv::circle( regMapDisplay, cv::Point(centroid.at<int>(idx,1), centroid.at<int>(idx,0)), 2, cv::Scalar( 255, 0, 0), 3);
+
+  //----------------------------------- oriented bounding box -------------------------
+  orientedBoundingBox.create((int)frame.size().height, (int)frame.size().width, frame.type());
+  for( int i = 0; i < (int)orientedBoundingBox.size().height; i++){
+    for( int j = 0; j < (int)orientedBoundingBox.size().width; j++){
+      orientedBoundingBox.at<cv::Vec3b>(cv::Point(j,i))[0] = regionMap.at<int>(i, j) == 1 ? 255 : 0;
+      orientedBoundingBox.at<cv::Vec3b>(cv::Point(j,i))[1] = regionMap.at<int>(i, j) == 0 ? 255 : 0;
+      orientedBoundingBox.at<cv::Vec3b>(cv::Point(j,i))[2] = regionMap.at<int>(i, j) == 2 ? 255 : 0; 
+    }
+  }
+
+  // Draw
+  cv::Point center, distOriented;
+  center.x = centroid.at<int>( idx, 1);
+  center.y = centroid.at<int>( idx, 0);
+      
+  distOriented.x = center.x + 200 * cos( feature->centralAxisAngle );
+  distOriented.y = center.y - 200 * sin( feature->centralAxisAngle );
+
+  // central axis
+  cv::line( orientedBoundingBox, center, distOriented, cv::Scalar( 255, 255, 255), 2);
+      
+  cv::Point p1, p2, p3, p4;
+  p1.x = feature->orientedBoundingBox[0]; // p1 is the minx position
+  p1.y = feature->orientedBoundingBox[1];
+
+  p2.x = feature->orientedBoundingBox[2]; // p2 is the miny position
+  p2.y = feature->orientedBoundingBox[3];
+
+  p3.x = feature->orientedBoundingBox[4]; // p3 is the maxx position
+  p3.y = feature->orientedBoundingBox[5];
+
+  p4.x = feature->orientedBoundingBox[6]; // p4 is the maxy position
+  p4.y = feature->orientedBoundingBox[7];
+      
+      
+  // bounding box
+  //cv::line( orientedBoundingBox, minMin, maxMax, cv::Scalar( 0, 255, 255), 3);
+  cv::line( orientedBoundingBox, p1, p2, cv::Scalar(0, 255, 255), 3 );
+  cv::line( orientedBoundingBox, p2, p3, cv::Scalar(0, 255, 255), 3);
+  cv::line( orientedBoundingBox, p3, p4, cv::Scalar(0, 255, 255), 3);
+  cv::line( orientedBoundingBox, p4, p1, cv::Scalar(0, 255, 255), 3);
+
+  //---------------------------------------display the images -----------------------
+  cv::imshow( sourceWindowName, frame );
+  cv::imshow(thresholdWindowName, thresh);
+  cv::imshow(boundingBoxWindowName, regMapDisplay);
+  cv::imshow( orientedBoundingBoxWindowName, orientedBoundingBox);
+}
+
+void destroyDisplay( ) {
+  char sourceWindowName[255] = "Original Window";
+  char thresholdWindowName[255] = "Threshold Window"; 
+  char boundingBoxWindowName[255] = "Bounding Box Window";
+  char orientedBoundingBoxWindowName[255] = "Oriented Bounding Box Window";
+  
+  cv::destroyWindow( sourceWindowName );
+  cv::destroyWindow( thresholdWindowName );
+  cv::destroyWindow( boundingBoxWindowName );
+  cv::destroyWindow( orientedBoundingBoxWindowName ); 
 }
 
 // debugging tool to print an ObjectFeature Object
@@ -243,4 +314,8 @@ void printFeatures( ObjectFeature *feature ){
   printf("Area: %d\n", feature->unOrientedBoundingBox ); 
   printf("Ratio: %f\n", feature->width2Height);
   printf("Fill Ratio: %f\n", feature->fillRatio);
+  printf("Central Axis Angle %f \n", feature->centralAxisAngle );
+  printf("EgienVal 1 %f \n", feature->eigenVal1 );
+  printf("EigenVal 2 %f \n", feature->eigenVal2 );
+  printf("Excentricity %f \n", feature->excentricity );
 }
