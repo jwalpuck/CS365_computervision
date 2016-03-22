@@ -15,6 +15,7 @@ typedef struct{
   float eigenVal1;
   float eigenVal2;
   float excentricity; 
+  float orientedFillRatio;
 }ObjectFeature;
 
 //  Size of bounding box
@@ -26,15 +27,13 @@ float width2Height( cv::Mat &boundingBox, int idx);
 //  fill ratio
 float fillRatio( cv::Mat &boundingBox, cv::Mat &regMap, int idx);
 
+float ptsInOrientedBox( ObjectFeature &feature, cv::Mat &regMap );
+
 int getRegionSize( cv::Mat &regMap, int idx );
 
 float *getCentralAxisAngle( cv::Mat &regMap, cv::Mat &centroids, int idx, int regionSize );
 
-ObjectFeature *getFeatures(cv::Mat &boundingBox, cv::Mat &regionMap, cv::Mat &centroids, int closestToCenter, int regionSize);
-
-void displayProcess( ObjectFeature *feature, cv::Mat &boundingBox, cv::Mat &regionMap,cv::Mat &centroid, cv::Mat &frame, cv::Mat &thresh, int idx);
-
-void destroyDisplay( );
+ObjectFeature *getFeatures(cv::Mat &boundingBox, cv::Mat &regionMap, cv::Mat &centroids, int closestToCenter);
 
 void printFeatures( ObjectFeature *feature);
 

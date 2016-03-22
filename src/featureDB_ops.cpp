@@ -142,14 +142,24 @@ float scoreEuclidean(ObjectFeature *cur, ObjectFeature *other) {
   //Iterate through all features, calculating  Euclidean distance between them
   //UNORIENTED BOUNDING BOX
   score += i_euc(cur->unOrientedBoundingBox, other->unOrientedBoundingBox);
-
+  
   //WIDTH TO HEIGHT RATIO
-  score += i_euc(cur->width2Height, other->width2Height);
+  score += i_euc( cur->width2Height, other->width2Height );
 
   //FILL RATIO
-  score += i_euc(cur->fillRatio,  other->fillRatio);
+  score += i_euc( cur->fillRatio,  other->fillRatio );
 
-  //Others -----------
+  // EIGEN VALUE 1
+  score += i_euc( cur->eigenVal1, other->eigenVal1 );
+  
+  // EIGNE VALUE 2
+  score += i_euc( cur->eigenVal2, other->eigenVal2 );
+  
+  // EXCENTRICITY 
+  score += i_euc( cur->excentricity, other->excentricity );
+  
+  // ORIENTED BOUNDING BOX compare fill ratio?
+  score += i_euc( cur->orientedFillRatio, other->orientedFillRatio );
 
   score = fabs(score) * -1;
   return score;

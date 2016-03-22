@@ -24,8 +24,11 @@ int main(int argc, char *argv[]) {
   cv::VideoCapture *capdev;
   cv::Mat frame, thresh, boundingBox;
   ObjectFeature *cur;
+  
   char sourceWindowName[255] = "Original Window";
   char thresholdWindowName[255] = "Threshold Window";
+  char orientedBBWindowName[255] = "Oriented Bounding Box Window "; 
+  
   char *fileName;
   State state = idle;
   int keyPress;
@@ -52,6 +55,7 @@ int main(int argc, char *argv[]) {
   //Set up viewing windows
   cv::namedWindow( sourceWindowName, 1);
   cv::namedWindow( thresholdWindowName, 1 );
+  cv::namedWindow( orientedBBWindowName, 1 );
 
   //Main loop
   do {
@@ -63,7 +67,7 @@ int main(int argc, char *argv[]) {
       state = recog;
 
     //Initialize loop variables
-    cv::Mat frame, thresh, regionMap, centroid, boundingBox, regMapDisplay;
+    cv::Mat frame, thresh, regionMap, centroid, boundingBox, regMapDisplay, orientedBB;
     string objectLabel = "";
 
     //Get image
@@ -75,8 +79,9 @@ int main(int argc, char *argv[]) {
     thresh = prepImage(frame, regionMap, centroid, boundingBox, threshValue);
 
     //Find the object closest to the center of the image
+    // we could change this to do many objects pretty easily.
     centerObj = getCenteredObject(frame, boundingBox, centroid);
-
+	
     //Create a region map with a bounding box on the centered object
     regMapDisplay.create((int)regionMap.size().height, (int)regionMap.size().width, frame.type());
     makeRegMapDisplay(regMapDisplay, regionMap, centroid, boundingBox, centerObj); //Populate the image
@@ -91,23 +96,26 @@ int main(int argc, char *argv[]) {
 
     /** If training, calculate features and output with label to given file **/
     case train:
+
       //printf("**Current state = train**\n");
 
       //Calculate features
       cur = (ObjectFeature *)malloc(sizeof(*cur));
-
-      //****NOTE: This last argument needs to be fixed************
-      cur = getFeatures(boundingBox, regionMap, centroid, centerObj, 99999999);
+      
+      // get the region size
+      cur = getFeatures(boundingBox, regionMap, centroid, centerObj);
 
       //Get object label from the user
       printf("Please enter a label for the centered object in view\n");
       getline(cin, objectLabel);
       std::copy(objectLabel.begin(), objectLabel.end(), cur->id);
 
-      /****/
-      //NOTE TO TORRIE: We could display features here if we wanted
-      /****/
+      // Display the oriented bounding box here. 
+      orientedBB.create((int)regionMap.size().height, (int)regionMap.size().width, frame.type());
+      makeOrientedBBDisplay(orientedBB, regionMap, cur, centroid, centerObj); //Populate the image
+      cv::imshow( orientedBBWindowName, orientedBB);
 
+    
       //Write features to DB
       cout << "Writing the features of " << objectLabel << " to " << fileName <<endl; //Need to use cout to print C++ string
       writeFeatureToFile(cur, fileName);
@@ -126,7 +134,7 @@ int main(int argc, char *argv[]) {
       
       //Calculate features
       cur = (ObjectFeature *)malloc(sizeof(*cur));
-      cur = getFeatures(boundingBox, regionMap, centroid, centerObj, 99999999);
+      cur = getFeatures(boundingBox, regionMap, centroid, centerObj);
 
       //Compare cur feature vector with DB to get the best score
       char *match = findBestFeatureResult(cur, fileName);
@@ -149,12 +157,14 @@ int main(int argc, char *argv[]) {
     regionMap.release();
     centroid.release();
     boundingBox.release();
+    orientedBB.release();
 
   }while(keyPress != 27);
 
   //Clean up outer vars
   cv::destroyWindow( sourceWindowName );
   cv::destroyWindow( thresholdWindowName );
+  cv::destroyWindow( orientedBBWindowName );
   delete capdev;
 
 

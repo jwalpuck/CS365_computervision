@@ -94,6 +94,7 @@ int getCenteredObject(cv::Mat &frame, cv::Mat &boundingBox, cv::Mat &centroid) {
   return centerObj;
 }
 
+
 void makeRegMapDisplay(cv::Mat &regMapDisplay, cv::Mat &regionMap, cv::Mat &centroid, cv::Mat &boundingBox, int centerObj) {
   int size = 0;
   for( int i = 0; i < (int)regionMap.size().height; i++){
@@ -108,3 +109,48 @@ void makeRegMapDisplay(cv::Mat &regMapDisplay, cv::Mat &regionMap, cv::Mat &cent
   cv::rectangle( regMapDisplay, cv::Point(  boundingBox.at<int>(centerObj,1), boundingBox.at<int>(centerObj,0)), cv::Point( boundingBox.at<int>(centerObj,3), boundingBox.at<int>(centerObj,2)), cv::Scalar(0, 255, 0));
   cv::circle( regMapDisplay, cv::Point(centroid.at<int>(centerObj,1), centroid.at<int>(centerObj,0)), 2, cv::Scalar( 255, 0, 0), 3);
 }
+
+
+void makeOrientedBBDisplay( cv::Mat &orientedBB, cv::Mat &regionMap, ObjectFeature *feature, cv::Mat &centroid, int idx){
+  //----------------------------------- oriented bounding box -------------------------
+  for( int i = 0; i < (int)orientedBB.size().height; i++){
+    for( int j = 0; j < (int)orientedBB.size().width; j++){
+      orientedBB.at<cv::Vec3b>(cv::Point(j,i))[0] = regionMap.at<int>(i, j) == 1 ? 255 : 0;
+      orientedBB.at<cv::Vec3b>(cv::Point(j,i))[1] = regionMap.at<int>(i, j) == 0 ? 255 : 0;
+      orientedBB.at<cv::Vec3b>(cv::Point(j,i))[2] = regionMap.at<int>(i, j) == 2 ? 255 : 0; 
+    }
+  }
+
+  // Draw
+  cv::Point center, distOriented;
+  center.x = centroid.at<int>( idx, 1);
+  center.y = centroid.at<int>( idx, 0);
+      
+  distOriented.x = center.x + 200 * cos( feature->centralAxisAngle );
+  distOriented.y = center.y - 200 * sin( feature->centralAxisAngle );
+
+  // central axis
+  cv::line( orientedBB, center, distOriented, cv::Scalar( 255, 255, 255), 2);
+      
+  cv::Point p1, p2, p3, p4;
+  p1.x = feature->orientedBoundingBox[0]; // p1 is the minx position
+  p1.y = feature->orientedBoundingBox[1];
+
+  p2.x = feature->orientedBoundingBox[2]; // p2 is the miny position
+  p2.y = feature->orientedBoundingBox[3];
+
+  p3.x = feature->orientedBoundingBox[4]; // p3 is the maxx position
+  p3.y = feature->orientedBoundingBox[5];
+
+  p4.x = feature->orientedBoundingBox[6]; // p4 is the maxy position
+  p4.y = feature->orientedBoundingBox[7];
+      
+      
+  // bounding box
+  //cv::line( orientedBoundingBox, minMin, maxMax, cv::Scalar( 0, 255, 255), 3);
+  cv::line( orientedBB, p1, p2, cv::Scalar(0, 255, 255), 3 );
+  cv::line( orientedBB, p2, p3, cv::Scalar(0, 255, 255), 3);
+  cv::line( orientedBB, p3, p4, cv::Scalar(0, 255, 255), 3);
+  cv::line( orientedBB, p4, p1, cv::Scalar(0, 255, 255), 3);
+}
+

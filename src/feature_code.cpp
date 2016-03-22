@@ -48,6 +48,26 @@ float fillRatio( cv::Mat &boundingBox, cv::Mat &regMap, int idx){
   return( count / area );
 }
 
+
+// IS THIS RIGHT???? 
+// I am not sure the area computation is correct. 
+float ptsInOrientedBox( ObjectFeature *feature, cv::Mat &regMap ){
+  int count = 0;
+  float area = 0; 
+  for( int i = feature->orientedBoundingBox[0]; i < feature->orientedBoundingBox[4]; i++){
+    for( int j = feature->orientedBoundingBox[2]; j < feature->orientedBoundingBox[7]; j++){
+      if (regMap.at<int>(j, i) >= 0 ){
+	count ++; 
+      }
+    }
+  }
+  float tempx = feature->orientedBoundingBox[4] - feature->orientedBoundingBox[0];
+  float tempy = feature->orientedBoundingBox[2] - feature->orientedBoundingBox[7];
+  area = tempx * tempy; 
+  return( count / area );
+}
+
+
 // get the number of points in the region map with the specified index
 int getRegionSize( cv::Mat &regMap, int idx ){
   int size = 0; 
@@ -191,15 +211,19 @@ float *getCentralAxisAngle( cv::Mat &regMap, cv::Mat &centroids, int idx, int re
 
 
 // Parent function to call all the possible feature options on each object placed into the database 
-ObjectFeature *getFeatures( cv::Mat &boundingBox, cv::Mat &regionMap, cv::Mat &centroids, int closestToCenter, int regionSize){
+ObjectFeature *getFeatures( cv::Mat &boundingBox, cv::Mat &regionMap, cv::Mat &centroids, int closestToCenter){
   ObjectFeature *results = (ObjectFeature *)malloc(sizeof(ObjectFeature));
+  float *tempOrientedInfo;
+  
   results->id[0] = '\0';
   results->unOrientedBoundingBox = bbArea( boundingBox, closestToCenter );
   results->width2Height = width2Height( boundingBox, closestToCenter );
   results->fillRatio = fillRatio( boundingBox, regionMap, closestToCenter );
-  results->size = regionSize; 
-  float *tempOrientedInfo;
-  tempOrientedInfo = getCentralAxisAngle( regionMap, centroids, closestToCenter, regionSize);
+  results->size = getRegionSize( regionMap, closestToCenter ); 
+
+  
+  // unoriented bounding box, eigen values, excentricity 
+  tempOrientedInfo = getCentralAxisAngle( regionMap, centroids, closestToCenter, results->size);
   results->centralAxisAngle = tempOrientedInfo[0];
   results->orientedBoundingBox[0] = tempOrientedInfo[1];
   results->orientedBoundingBox[1] = tempOrientedInfo[2];
@@ -209,113 +233,30 @@ ObjectFeature *getFeatures( cv::Mat &boundingBox, cv::Mat &regionMap, cv::Mat &c
   results->orientedBoundingBox[5] = tempOrientedInfo[6];
   results->orientedBoundingBox[6] = tempOrientedInfo[7];
   results->orientedBoundingBox[7] = tempOrientedInfo[8];
+  
   results->eigenVal1 = tempOrientedInfo[9];
   results->eigenVal2 = tempOrientedInfo[10];
   results->excentricity = tempOrientedInfo[11];
+  
+  float fillRatio = ptsInOrientedBox( results, regionMap ); 
+  results->orientedFillRatio = fillRatio; 
 
   free( tempOrientedInfo );
   return(results);
 }
 
-// SHOULD PROBABLY CHANGE THIS TO PULL UP ONE WINDOW
-// HCONCAT or VCONCAT the matrices. 
-void displayProcess( ObjectFeature *feature, cv::Mat &boundingBox, cv::Mat &regionMap,cv::Mat &centroid, cv::Mat &frame, cv::Mat &thresh, int idx){
-  cv::Mat regMapDisplay, orientedBoundingBox;
-  // Naming the Windows
-  char sourceWindowName[255] = "Original Window";
-  char thresholdWindowName[255] = "Threshold Window"; 
-  char boundingBoxWindowName[255] = "Bounding Box Window";
-  char orientedBoundingBoxWindowName[255] = "Oriented Bounding Box Window";
-  
-  // SET UP VIEWING WINDOWS
-  cv::namedWindow( sourceWindowName, 1); // identifies a window?
-  cv::namedWindow( thresholdWindowName, 1 ); 
-  cv::namedWindow( boundingBoxWindowName, 1);
-  cv::namedWindow( orientedBoundingBoxWindowName, 1);
 
-  //---------------------------------- thresholded image ---------------------------------
-  regMapDisplay.create((int)regionMap.size().height, (int)regionMap.size().width, frame.type());
-  for( int i = 0; i < (int)regionMap.size().height; i++){
-    for( int j = 0; j < (int)regionMap.size().width; j++){
-      regMapDisplay.at<cv::Vec3b>(cv::Point(j,i))[0] = regionMap.at<int>(i, j) == 2 ? 255 : 0;
-      regMapDisplay.at<cv::Vec3b>(cv::Point(j,i))[1] = regionMap.at<int>(i, j) == 1 ? 255 : 0;
-      regMapDisplay.at<cv::Vec3b>(cv::Point(j,i))[2] = (regionMap.at<int>(i, j)) == 0 ? 255 : 0; 
-    }
-  }
-
-  cv::rectangle( regMapDisplay, cv::Point(  boundingBox.at<int>(idx,1), boundingBox.at<int>(idx,0)), cv::Point( boundingBox.at<int>(idx,3), boundingBox.at<int>(idx,2)), cv::Scalar(0, 255, 0));
-  cv::circle( regMapDisplay, cv::Point(centroid.at<int>(idx,1), centroid.at<int>(idx,0)), 2, cv::Scalar( 255, 0, 0), 3);
-
-  //----------------------------------- oriented bounding box -------------------------
-  orientedBoundingBox.create((int)frame.size().height, (int)frame.size().width, frame.type());
-  for( int i = 0; i < (int)orientedBoundingBox.size().height; i++){
-    for( int j = 0; j < (int)orientedBoundingBox.size().width; j++){
-      orientedBoundingBox.at<cv::Vec3b>(cv::Point(j,i))[0] = regionMap.at<int>(i, j) == 1 ? 255 : 0;
-      orientedBoundingBox.at<cv::Vec3b>(cv::Point(j,i))[1] = regionMap.at<int>(i, j) == 0 ? 255 : 0;
-      orientedBoundingBox.at<cv::Vec3b>(cv::Point(j,i))[2] = regionMap.at<int>(i, j) == 2 ? 255 : 0; 
-    }
-  }
-
-  // Draw
-  cv::Point center, distOriented;
-  center.x = centroid.at<int>( idx, 1);
-  center.y = centroid.at<int>( idx, 0);
-      
-  distOriented.x = center.x + 200 * cos( feature->centralAxisAngle );
-  distOriented.y = center.y - 200 * sin( feature->centralAxisAngle );
-
-  // central axis
-  cv::line( orientedBoundingBox, center, distOriented, cv::Scalar( 255, 255, 255), 2);
-      
-  cv::Point p1, p2, p3, p4;
-  p1.x = feature->orientedBoundingBox[0]; // p1 is the minx position
-  p1.y = feature->orientedBoundingBox[1];
-
-  p2.x = feature->orientedBoundingBox[2]; // p2 is the miny position
-  p2.y = feature->orientedBoundingBox[3];
-
-  p3.x = feature->orientedBoundingBox[4]; // p3 is the maxx position
-  p3.y = feature->orientedBoundingBox[5];
-
-  p4.x = feature->orientedBoundingBox[6]; // p4 is the maxy position
-  p4.y = feature->orientedBoundingBox[7];
-      
-      
-  // bounding box
-  //cv::line( orientedBoundingBox, minMin, maxMax, cv::Scalar( 0, 255, 255), 3);
-  cv::line( orientedBoundingBox, p1, p2, cv::Scalar(0, 255, 255), 3 );
-  cv::line( orientedBoundingBox, p2, p3, cv::Scalar(0, 255, 255), 3);
-  cv::line( orientedBoundingBox, p3, p4, cv::Scalar(0, 255, 255), 3);
-  cv::line( orientedBoundingBox, p4, p1, cv::Scalar(0, 255, 255), 3);
-
-  //---------------------------------------display the images -----------------------
-  cv::imshow( sourceWindowName, frame );
-  cv::imshow(thresholdWindowName, thresh);
-  cv::imshow(boundingBoxWindowName, regMapDisplay);
-  cv::imshow( orientedBoundingBoxWindowName, orientedBoundingBox);
-}
-
-void destroyDisplay( ) {
-  char sourceWindowName[255] = "Original Window";
-  char thresholdWindowName[255] = "Threshold Window"; 
-  char boundingBoxWindowName[255] = "Bounding Box Window";
-  char orientedBoundingBoxWindowName[255] = "Oriented Bounding Box Window";
-  
-  cv::destroyWindow( sourceWindowName );
-  cv::destroyWindow( thresholdWindowName );
-  cv::destroyWindow( boundingBoxWindowName );
-  cv::destroyWindow( orientedBoundingBoxWindowName ); 
-}
 
 // debugging tool to print an ObjectFeature Object
 void printFeatures( ObjectFeature *feature ){
   printf("HERE\n");
   printf("Feature Name: %s\n", feature->id );
-  printf("Area: %d\n", feature->unOrientedBoundingBox ); 
+  printf("Area: %f\n", feature->unOrientedBoundingBox ); 
   printf("Ratio: %f\n", feature->width2Height);
   printf("Fill Ratio: %f\n", feature->fillRatio);
   printf("Central Axis Angle %f \n", feature->centralAxisAngle );
   printf("EgienVal 1 %f \n", feature->eigenVal1 );
   printf("EigenVal 2 %f \n", feature->eigenVal2 );
   printf("Excentricity %f \n", feature->excentricity );
+  printf("Oriented Fill Ratio %f \n", feature->orientedFillRatio );
 }
