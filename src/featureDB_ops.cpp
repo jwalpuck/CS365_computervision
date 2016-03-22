@@ -6,6 +6,7 @@
  */
 
 #include <cstdio>
+#include <cstring>
 #include "opencv2/opencv.hpp"
 #include "feature_code.h"
 #include "featureDB_ops.h"
@@ -22,6 +23,51 @@ inline float i_stddev(float x, float y) {
 
 inline float i_euc(float x, float y) {
   return (x - y) / i_stddev(x, y);
+}
+
+/** Return the standard deviation of x, which is of length n **/
+float n_std(float *x, int n) {
+  float mean, total, ssd, std;
+
+  //Calculate the mean of x
+  total = 0;
+  for(int i = 0; i < n; i++) {
+    total += x[i];
+  }
+  mean = total / n;
+
+  //Use the mean to calculate standard deviation
+  ssd = 0;
+  for(int i = 0; i < n; i++) {
+    ssd += (x[i] - mean) * (x[i] - mean);
+  }
+  return sqrt(ssd / n);
+}
+
+/** Calculate the standard deviation for all vectors across all dimensions and store them
+    (by reference) in std_devs **/
+void vector_std(float *std_devs, ObjectFeature *vectors, int numVectors) {
+  //Declare helper arrays for the features for which we are calculating std_dev
+  float a_unOrientedBoundingBox[numVectors];
+  float a_width2Height[numVectors];
+  float a_fillRatio[numVectors];
+  float a_eigenVal1[numVectors];
+  float a_eigenVal2[numVectors];
+
+  //Populate the arrays
+  for(int i = 0; i < numVectors; i++) {
+    a_unOrientedBoundingBox[i] = vectors[i].unOrientedBoundingBox;
+    a_width2Height[i] = vectors[i].width2Height;
+    a_fillRatio[i] = vectors[i].fillRatio;
+    a_eigenVal1[i] = vectors[i].eigenVal1;
+    a_eigenVal2[i] = vectors[i].eigenVal2;;
+  }
+
+  std_devs[0] = n_std(a_unOrientedBoundingBox, numVectors);
+  std_devs[1] = n_std(a_width2Height, numVectors);
+  std_devs[2] = n_std(a_fillRatio, numVectors);
+  std_devs[3] = n_std(a_eigenVal1, numVectors);
+  std_devs[4] = n_std(a_eigenVal2, numVectors);
 }
 
 // NEED TO DECIDE IF WE WANT TO BUILD ONE OBJECT AT A TIME OR MANY OBJECTS AT ONE TIME
@@ -52,6 +98,36 @@ void writeFeatureToFile( ObjectFeature *feature, char *fileOutName ){
 
   fclose( featureFile );
   return;
+}
+
+/** Returns an array of featureVectors parsed from the given fileName along with the
+    number of vectors (by reference into *n) **/
+ObjectFeature *getVectors(int *n, char *fileInName) {
+  FILE *fin = fopen( fileInName, "r");
+  int count = 0, index;
+
+  // Create temporary feature to read from file
+  ObjectFeature tempResult;
+  ObjectFeature *vectors = (ObjectFeature *)malloc(sizeof(ObjectFeature));
+
+  // Read in entire Database!! 
+  while( ( fread(&index, sizeof(int), 1 , fin )) != 0 ){
+    fread( tempResult.id, sizeof(char), 255, fin );
+    fread( &tempResult.unOrientedBoundingBox, sizeof(float), 1, fin);
+    fread( &tempResult.width2Height, sizeof(float), 1, fin);
+    fread( &tempResult.fillRatio, sizeof(float), 1, fin);
+
+    vectors = (ObjectFeature *)realloc(vectors, sizeof(ObjectFeature) * (count + 1));
+    if(!vectors) {
+      free(vectors);
+      exit(-1);
+    }
+    count++;
+  }
+  fclose(fin);
+
+  *n = count;
+  return vectors;
 }
 
 // find the best result from the database file.
@@ -113,9 +189,55 @@ char *findBestFeatureResult( ObjectFeature *feature, char *fileInName ){
       memcpy((void *)(result), (void *)&tempResult, sizeof(ObjectFeature));
     }
   }
+
+  int closed = fclose(fin);
   
   printf("Returning %s\n", result->id);
   return(result->id);
+}
+
+/** Returns a list of unique labels in the given file, also passes the size of that array
+    by reference **/
+char **getLabels(int *n, char *fileName) {
+  FILE *fin = fopen( fileName, "r");
+  int index = 0, count = 0, stored = 0;
+  char **labels = (char **)malloc(sizeof(*labels));
+
+  // Create temporary feature to read from file
+  ObjectFeature tempResult;
+
+  // Read in entire Database!! 
+  while( ( fread(&index, sizeof(int), 1 , fin )) != 0 ){
+    stored = 0; //Assume we have not already stored this label in our array
+    fread( tempResult.id, sizeof(char), 255, fin );
+    
+    //These will not be used, but must be read anyway
+    fread( &tempResult.unOrientedBoundingBox, sizeof(float), 1, fin);
+    fread( &tempResult.width2Height, sizeof(float), 1, fin);
+    fread( &tempResult.fillRatio, sizeof(float), 1, fin);
+
+    //Make sure we do not already have this label stored
+    for(int i = 0; i < count; i++) {
+      if(strcmp(labels[i], tempResult.id) == 0) {
+	stored = 1; //If two strings are equal, mark that we have already stored this id
+      }
+    }
+    if(!stored) {
+      labels = (char **)realloc(labels, sizeof(*labels) * (count + 1));
+      if(!labels) {
+	free(labels);
+	exit(-1);
+      }
+      labels[count] = (char *)malloc(strlen(tempResult.id) * sizeof(char));
+      strcpy(labels[count], (const char *)tempResult.id);
+      count++;
+    }
+  }
+
+  int closed = fclose(fin);
+
+  *n = count;
+  return labels;
 }
 
 float scoreFeatures(ObjectFeature *cur, ObjectFeature *other, int distanceMetric) {
@@ -156,12 +278,52 @@ float scoreEuclidean(ObjectFeature *cur, ObjectFeature *other) {
   score += i_euc( cur->eigenVal2, other->eigenVal2 );
   
   // EXCENTRICITY 
-  score += i_euc( cur->excentricity, other->excentricity );
+  //score += i_euc( cur->excentricity, other->excentricity );
   
   // ORIENTED BOUNDING BOX compare fill ratio?
-  score += i_euc( cur->orientedFillRatio, other->orientedFillRatio );
+  //score += i_euc( cur->orientedFillRatio, other->orientedFillRatio );
 
   score = fabs(score) * -1;
   return score;
-} 
+}
 
+/** Calculates a class from the given file for the given feature vector cur and stores
+    the name of this class at the address match.
+
+    Scoring is done via k_nearestNeighbors using Euclidean distance **/
+void *k_nearestNeighbors(ObjectFeature *cur, char *fileName, int k, char *match) {
+  int numVectors, numLabels;
+  char **labels, nearestLabels[k];
+  float nearestDistances[k], *std_devs;
+  ObjectFeature *vectors;
+
+  //Get a list of labels (necessary?)
+  //labels = getLabels(&numLabels, fileName);
+
+  //Get a list of vectors
+  vectors = getVectors(&numVectors, fileName);
+
+  //Initialize the set of best distances to ensure that we populate it
+  for(int i = 0; i < k; i++) {
+    nearestDistances[i] = FLT_MAX;
+  }
+
+  //Calculate the standard deviation in each dimension, store it
+  std_devs = (float *)malloc(sizeof(float) * NUM_FEATURES);
+  vector_std(std_devs, vectors, numVectors);
+
+  //For each vector in the array:
+  for(int i = 0; i < numVectors; i++) {
+    //Score the vector vs cur (dist over each dimension summed)
+    
+    //Check to see if it ranks in top k
+  }
+
+  //Clean up
+  for(int i = 0; i < numLabels; i++) {
+    free(labels[i]);
+  }
+  free(labels);
+  free(vectors);
+  free(std_devs);
+}

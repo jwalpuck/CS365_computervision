@@ -27,7 +27,7 @@ int main(int argc, char *argv[]) {
   
   char sourceWindowName[255] = "Original Window";
   char thresholdWindowName[255] = "Threshold Window";
-  char orientedBBWindowName[255] = "Oriented Bounding Box Window "; 
+  char orientedBBWindowName[255] = "Oriented Bounding Box Window"; 
   
   char *fileName;
   State state = idle;
@@ -65,6 +65,15 @@ int main(int argc, char *argv[]) {
       state = train;
     else if(keyPress == 106) //j to recognize
       state = recog;
+    else if(keyPress == 107){ //k to see labels in DB
+      int n0;
+      char **labels = getLabels(&n0, fileName);
+      for(int i = 0; i < n0; i++) {
+	printf("Label %d: %s\n", i, labels[i]);
+	free(labels[i]);
+      }
+      free(labels);
+    }
 
     //Initialize loop variables
     cv::Mat frame, thresh, regionMap, centroid, boundingBox, regMapDisplay, orientedBB;
@@ -92,11 +101,11 @@ int main(int argc, char *argv[]) {
 
     /** If idle, do nothing **/
     case idle:
-      break;
+      {break;}
 
     /** If training, calculate features and output with label to given file **/
     case train:
-
+      {
       //printf("**Current state = train**\n");
 
       //Calculate features
@@ -108,7 +117,8 @@ int main(int argc, char *argv[]) {
       //Get object label from the user
       printf("Please enter a label for the centered object in view\n");
       getline(cin, objectLabel);
-      std::copy(objectLabel.begin(), objectLabel.end(), cur->id);
+      size_t ddd = objectLabel.copy(cur->id, objectLabel.size(), 0);
+      cur->id[objectLabel.size()] = '\0'; //Add a null terminator
 
       // Display the oriented bounding box here. 
       orientedBB.create((int)regionMap.size().height, (int)regionMap.size().width, frame.type());
@@ -127,9 +137,11 @@ int main(int argc, char *argv[]) {
       state = idle;
 
       break;
+      }
 
     /** If recognizing, score object in view, compare to DB, output best match **/
     case recog:
+      {
       //printf("**Current state = recog**\n");
       
       //Calculate features
@@ -149,6 +161,7 @@ int main(int argc, char *argv[]) {
       state = idle;
 
       break;
+      }
     }
 
     //Clean up frame-specific vars

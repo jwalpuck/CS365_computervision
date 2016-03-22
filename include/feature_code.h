@@ -3,6 +3,7 @@
 #include "opencv2/opencv.hpp"
 
 #define FEATURE_CODE_H
+#define NUM_FEATURES 5
 
 typedef struct{
   char id[255];
