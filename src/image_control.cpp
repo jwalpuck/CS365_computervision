@@ -146,11 +146,23 @@ void makeOrientedBBDisplay( cv::Mat &orientedBB, cv::Mat &regionMap, ObjectFeatu
   p4.y = feature->orientedBoundingBox[7];
       
       
-  // bounding box
+  // bounding box 
   //cv::line( orientedBoundingBox, minMin, maxMax, cv::Scalar( 0, 255, 255), 3);
   cv::line( orientedBB, p1, p2, cv::Scalar(0, 255, 255), 3 );
   cv::line( orientedBB, p2, p3, cv::Scalar(0, 255, 255), 3);
   cv::line( orientedBB, p3, p4, cv::Scalar(0, 255, 255), 3);
   cv::line( orientedBB, p4, p1, cv::Scalar(0, 255, 255), 3);
+}
+
+void makeDisplayProcess( cv::Mat &dst, cv::Mat &frame, cv::Mat &regMapDisplay, cv::Mat &orientedBB, cv::Mat &result){
+	cv::Mat temp;
+	temp.create((int)frame.size().height, (int)frame.size().width * 4, frame.type());
+	
+	frame.copyTo( temp.rowRange( 0, frame.rows).colRange(0, frame.cols));
+	regMapDisplay.copyTo( temp.rowRange( 0, frame.rows).colRange(frame.cols, frame.cols * 2));
+	orientedBB.copyTo( temp.rowRange( 0, frame.rows).colRange(frame.cols * 2, frame.cols * 3));
+	result.copyTo( temp.rowRange( 0, frame.rows).colRange(frame.cols*3, frame.cols*4 ));
+
+	cv::resize( temp, dst, dst.size(), 0, 0, cv::INTER_AREA);
 }
 

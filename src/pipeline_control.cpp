@@ -25,9 +25,7 @@ int main(int argc, char *argv[]) {
   cv::Mat frame, thresh, boundingBox;
   ObjectFeature *cur;
   
-  char sourceWindowName[255] = "Original Window";
-  char thresholdWindowName[255] = "Threshold Window";
-  char orientedBBWindowName[255] = "Oriented Bounding Box Window"; 
+  char displayProcess[255] = "Display Process"; 
   
   char *fileName;
   State state = idle;
@@ -46,16 +44,14 @@ int main(int argc, char *argv[]) {
 
   //Open image stream
   //capdev = new cv::VideoCapture(0); //Torrie
-  capdev = new cv::VideoCapture(1); //Jack
+  capdev = new cv::VideoCapture(0); //Jack
   if(!capdev->isOpened()) {
     printf("Unable to open video device\n");
     return -1;
   }
 
   //Set up viewing windows
-  cv::namedWindow( sourceWindowName, 1);
-  cv::namedWindow( thresholdWindowName, 1 );
-  cv::namedWindow( orientedBBWindowName, 1 );
+	cv::namedWindow( displayProcess, 1 );
 
   //Main loop
   do {
@@ -76,12 +72,12 @@ int main(int argc, char *argv[]) {
     }
 
     //Initialize loop variables
-    cv::Mat frame, thresh, regionMap, centroid, boundingBox, regMapDisplay, orientedBB;
+    cv::Mat frame, thresh, regionMap, centroid, boundingBox, regMapDisplay, orientedBB, 
+    	idImg, processImg;
     string objectLabel = "";
 
     //Get image
     *capdev >> frame;
-    cv::imshow(sourceWindowName, frame);
 
     //Preprocess the frame
     int size = 0;
@@ -94,7 +90,33 @@ int main(int argc, char *argv[]) {
     //Create a region map with a bounding box on the centered object
     regMapDisplay.create((int)regionMap.size().height, (int)regionMap.size().width, frame.type());
     makeRegMapDisplay(regMapDisplay, regionMap, centroid, boundingBox, centerObj); //Populate the image
-    cv::imshow(thresholdWindowName, regMapDisplay);
+    
+    //Calculate features
+    cur = (ObjectFeature *)malloc(sizeof(*cur));
+      
+    // get the region size
+    cur = getFeatures(boundingBox, regionMap, centroid, centerObj);
+    
+    // Create Oriented bounding box on centered object
+    orientedBB.create((int)regionMap.size().height, (int)regionMap.size().width, frame.type());
+    makeOrientedBBDisplay(orientedBB, regionMap, cur, centroid, centerObj); //Populate the image
+    
+    // create the result image displaying the name of the object
+    idImg.create((int)frame.size().height, (int)frame.size().width, frame.type()); 
+    idImg = frame.clone();
+    cv::Point center; 
+    center.x = centroid.at<int>(centerObj, 1);
+    center.y = centroid.at<int>(centerObj, 0);
+    
+    // JACK: for the last stage of the display to work I need cur->id to update its value,
+    //   where in the pipeline should this happen? 
+    printf("CUR ID %s\n", cur->id );
+    cv::putText( idImg, cur->id, center, cv::FONT_HERSHEY_COMPLEX_SMALL, 0.8, cvScalar( 0, 0,250), 1, CV_AA);
+    
+    // Create one image to display all the steps of the pipeline
+    processImg.create((int)frame.size().height / 2, (int)frame.size().width * 2, frame.type());
+    makeDisplayProcess( processImg, frame, regMapDisplay, orientedBB, idImg);
+	cv::imshow( displayProcess, processImg );
 
     //States: idle, training, recognizing
     switch(state) {
@@ -108,31 +130,16 @@ int main(int argc, char *argv[]) {
       {
       //printf("**Current state = train**\n");
 
-      //Calculate features
-      cur = (ObjectFeature *)malloc(sizeof(*cur));
-      
-      // get the region size
-      cur = getFeatures(boundingBox, regionMap, centroid, centerObj);
-
       //Get object label from the user
       printf("Please enter a label for the centered object in view\n");
       getline(cin, objectLabel);
       size_t ddd = objectLabel.copy(cur->id, objectLabel.size(), 0);
       cur->id[objectLabel.size()] = '\0'; //Add a null terminator
-
-      // Display the oriented bounding box here. 
-      orientedBB.create((int)regionMap.size().height, (int)regionMap.size().width, frame.type());
-      makeOrientedBBDisplay(orientedBB, regionMap, cur, centroid, centerObj); //Populate the image
-      cv::imshow( orientedBBWindowName, orientedBB);
-
     
       //Write features to DB
       cout << "Writing the features of " << objectLabel << " to " << fileName <<endl; //Need to use cout to print C++ string
       writeFeatureToFile(cur, fileName);
-
-      //Clean up
-      free(cur);
-
+      
       //Move the state back to idle
       state = idle;
 
@@ -145,17 +152,17 @@ int main(int argc, char *argv[]) {
       //printf("**Current state = recog**\n");
       
       //Calculate features
-      cur = (ObjectFeature *)malloc(sizeof(*cur));
-      cur = getFeatures(boundingBox, regionMap, centroid, centerObj);
+      // JACK: I don't think we need to recompute now that we have moved it outside of statemachine
+      //cur = (ObjectFeature *)malloc(sizeof(*cur));
+      //cur = getFeatures(boundingBox, regionMap, centroid, centerObj);
 
       //Compare cur feature vector with DB to get the best score
       char *match = findBestFeatureResult(cur, fileName);
 
+	  strcpy( cur->id, (const char *)match);
+	  
       //Output label
       printf("Best guess of the centered object in frame: %s\n", match);
-
-      //Clean up
-      free(cur);
 
       //Move the state back to idle
       state = idle;
@@ -171,13 +178,16 @@ int main(int argc, char *argv[]) {
     centroid.release();
     boundingBox.release();
     orientedBB.release();
+    processImg.release();
 
   }while(keyPress != 27);
 
+  // JACK: IS THIS OK TO MOVE HERE? !?!?!?!?!? ***********************************
+  //Clean up
+  free(cur);
+  
   //Clean up outer vars
-  cv::destroyWindow( sourceWindowName );
-  cv::destroyWindow( thresholdWindowName );
-  cv::destroyWindow( orientedBBWindowName );
+  cv::destroyWindow( displayProcess );
   delete capdev;
 
 

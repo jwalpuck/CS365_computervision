@@ -15,7 +15,7 @@ typedef struct{
   float orientedBoundingBox[8];
   float eigenVal1;
   float eigenVal2;
-  float excentricity; 
+  float eccentricity; 
   float orientedFillRatio;
 }ObjectFeature;
 

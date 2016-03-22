@@ -70,7 +70,6 @@ void vector_std(float *std_devs, ObjectFeature *vectors, int numVectors) {
   std_devs[4] = n_std(a_eigenVal2, numVectors);
 }
 
-// NEED TO DECIDE IF WE WANT TO BUILD ONE OBJECT AT A TIME OR MANY OBJECTS AT ONE TIME
 void writeFeatureToFile( ObjectFeature *feature, char *fileOutName ){
   if( debug ){
     printf("Writing Feature to a file\n");
@@ -87,6 +86,14 @@ void writeFeatureToFile( ObjectFeature *feature, char *fileOutName ){
   fwrite(&feature->unOrientedBoundingBox, sizeof(float), 1, featureFile );
   fwrite(&feature->width2Height, sizeof(float), 1, featureFile );
   fwrite(&feature->fillRatio, sizeof(float), 1, featureFile );
+ 
+  //NEED TO ADD NEW FEATURES
+  fwrite( &feature->size, sizeof(int), 1, featureFile );
+  fwrite( &feature->centralAxisAngle, sizeof(float), 1, featureFile );
+  fwrite( &feature->eigenVal1, sizeof(float), 1, featureFile );
+  fwrite( &feature->eigenVal2, sizeof(float), 1, featureFile ); 
+  fwrite( &feature->eccentricity, sizeof(float), 1, featureFile );
+  fwrite( &feature->orientedFillRatio, sizeof(float), 1, featureFile );
 
   if( debug ){
     printf("write 1 %d\n", hold);
@@ -116,6 +123,13 @@ ObjectFeature *getVectors(int *n, char *fileInName) {
     fread( &tempResult.unOrientedBoundingBox, sizeof(float), 1, fin);
     fread( &tempResult.width2Height, sizeof(float), 1, fin);
     fread( &tempResult.fillRatio, sizeof(float), 1, fin);
+    // NEED TO ADD NEW FEATURES
+    fread( &tempResult.size, sizeof(int), 1, fin );
+    fread( &tempResult.centralAxisAngle, sizeof(float), 1, fin );
+    fread( &tempResult.eigenVal1, sizeof(float), 1, fin );
+    fread( &tempResult.eigenVal2, sizeof(float), 1, fin ); 
+    fread( &tempResult.eccentricity, sizeof(float), 1, fin );
+    fread( &tempResult.orientedFillRatio, sizeof(float), 1, fin);
 
     vectors = (ObjectFeature *)realloc(vectors, sizeof(ObjectFeature) * (count + 1));
     if(!vectors) {
@@ -160,6 +174,18 @@ char *findBestFeatureResult( ObjectFeature *feature, char *fileInName ){
     
 
     fread( &tempResult.fillRatio, sizeof(float), 1, fin);
+    // NEED TO ADD OTHER FEATURES
+    fread( &tempResult.size, sizeof(int), 1, fin );
+    
+    fread( &tempResult.centralAxisAngle, sizeof(float), 1, fin );
+    
+    fread( &tempResult.eigenVal1, sizeof(float), 1, fin );
+    
+    fread( &tempResult.eigenVal2, sizeof(float), 1, fin ); 
+    
+    fread( &tempResult.eccentricity, sizeof(float), 1, fin );
+    
+    fread( &tempResult.orientedFillRatio, sizeof(float), 1, fin);
     
 
     if( debug ){
@@ -215,7 +241,14 @@ char **getLabels(int *n, char *fileName) {
     fread( &tempResult.unOrientedBoundingBox, sizeof(float), 1, fin);
     fread( &tempResult.width2Height, sizeof(float), 1, fin);
     fread( &tempResult.fillRatio, sizeof(float), 1, fin);
-
+	// NEED TO ADD OTHER FEATURES 
+	fread( &tempResult.size, sizeof(int), 1, fin );
+    fread( &tempResult.centralAxisAngle, sizeof(float), 1, fin );
+    fread( &tempResult.eigenVal1, sizeof(float), 1, fin );
+    fread( &tempResult.eigenVal2, sizeof(float), 1, fin ); 
+    fread( &tempResult.eccentricity, sizeof(float), 1, fin );
+    fread( &tempResult.orientedFillRatio, sizeof(float), 1, fin);
+	
     //Make sure we do not already have this label stored
     for(int i = 0; i < count; i++) {
       if(strcmp(labels[i], tempResult.id) == 0) {
@@ -277,8 +310,8 @@ float scoreEuclidean(ObjectFeature *cur, ObjectFeature *other) {
   // EIGNE VALUE 2
   score += i_euc( cur->eigenVal2, other->eigenVal2 );
   
-  // EXCENTRICITY 
-  //score += i_euc( cur->excentricity, other->excentricity );
+  // ECCENTRICITY
+  score += i_euc( cur->eccentricity, other->eccentricity );
   
   // ORIENTED BOUNDING BOX compare fill ratio?
   //score += i_euc( cur->orientedFillRatio, other->orientedFillRatio );

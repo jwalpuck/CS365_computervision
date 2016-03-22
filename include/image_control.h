@@ -16,4 +16,6 @@ void makeRegMapDisplay(cv::Mat &regMapDisplay, cv::Mat &regionMap, cv::Mat &cent
 // Create the features that display the oriented bounding box
 void makeOrientedBBDisplay( cv::Mat &orientedBB, cv::Mat &regionMap, ObjectFeature *feature, cv::Mat &centroid, int idx);
 
+void makeDisplayProcess( cv::Mat &dst, cv::Mat &frame, cv::Mat &regMapDisplay, cv::Mat &orientedBB, cv::Mat &result);
+
 #endif

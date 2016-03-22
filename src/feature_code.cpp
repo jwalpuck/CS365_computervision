@@ -54,16 +54,20 @@ float fillRatio( cv::Mat &boundingBox, cv::Mat &regMap, int idx){
 float ptsInOrientedBox( ObjectFeature *feature, cv::Mat &regMap ){
   int count = 0;
   float area = 0; 
-  for( int i = feature->orientedBoundingBox[0]; i < feature->orientedBoundingBox[4]; i++){
-    for( int j = feature->orientedBoundingBox[2]; j < feature->orientedBoundingBox[7]; j++){
+  //printf(" %d %d %d %d \n", (int)feature->orientedBoundingBox[0], (int)feature->orientedBoundingBox[4], (int)feature->orientedBoundingBox[3], (int)feature->orientedBoundingBox[7] );
+  for( int i = (int)feature->orientedBoundingBox[0]; i < (int)feature->orientedBoundingBox[4]; i++){
+    for( int j = (int)feature->orientedBoundingBox[3]; j < (int)feature->orientedBoundingBox[7]; j++){
+   	  //printf(" j %d i %d \n", j, i );
       if (regMap.at<int>(j, i) >= 0 ){
-	count ++; 
+		count ++; 
       }
     }
   }
-  float tempx = feature->orientedBoundingBox[4] - feature->orientedBoundingBox[0];
-  float tempy = feature->orientedBoundingBox[2] - feature->orientedBoundingBox[7];
+  
+  float tempx = fabs(feature->orientedBoundingBox[4] - feature->orientedBoundingBox[0]);
+  float tempy = fabs(feature->orientedBoundingBox[3] - feature->orientedBoundingBox[7]);
   area = tempx * tempy; 
+  //printf("CHECK %d %f %f\n", count, area, count / area );
   return( count / area );
 }
 
@@ -87,7 +91,7 @@ float *getCentralAxisAngle( cv::Mat &regMap, cv::Mat &centroids, int idx, int re
   float dx, dy;
   float mu20, mu02, mu11 = 0;
   float centralAxis;
-  float eigenVal1, eigenVal2, excentricity; 
+  float eigenVal1, eigenVal2, eccentricity; 
   cv::Mat centerBasedObjPts; 
 
   float *result = (float *)malloc(sizeof(float) * 12 ); 
@@ -115,9 +119,9 @@ float *getCentralAxisAngle( cv::Mat &regMap, cv::Mat &centroids, int idx, int re
     }
   }
   centralAxis = 0.5 * atan2( (2 * mu11),  ( mu20 - mu02 ));
-  eigenVal1 = (( mu20 + mu02 ) / 2) + (sqrt( 4 * mu11 * mu11 + ( mu20 - mu02 ))/ 2);
-  eigenVal2 =  (( mu20 + mu02 ) / 2) - (sqrt( 4 * mu11 * mu11 + ( mu20 - mu02 ))/ 2);
-  excentricity = sqrt( 1 - eigenVal1 / eigenVal2 ); 
+  eigenVal2 = (( mu20 + mu02 ) / 2) + (sqrt( 4 * mu11 * mu11 + ( mu20 - mu02 ))/ 2);
+  eigenVal1 =  (( mu20 + mu02 ) / 2) - (sqrt( 4 * mu11 * mu11 + ( mu20 - mu02 ))/ 2);
+  eccentricity = sqrt( 1 - (eigenVal1 / eigenVal2 )); 
   
   //------------------------------ Get oriented bounding box ----------------------------------
   float eCos, eSin;
@@ -146,6 +150,7 @@ float *getCentralAxisAngle( cv::Mat &regMap, cv::Mat &centroids, int idx, int re
       maxXY = y;
     }
 
+	// SOMETHING IS WRONG HERE
     if( y < miny ){
       miny = y;
       minYX = x; 
@@ -201,9 +206,10 @@ float *getCentralAxisAngle( cv::Mat &regMap, cv::Mat &centroids, int idx, int re
   result[6] = imgMaxXY;
   result[7] = imgMaxYX;
   result[8] = imgMaxy;
+ 
   result[9] = eigenVal1;
   result[10] = eigenVal2;
-  result[11] = excentricity;
+  result[11] = eccentricity;
   
   //printf("CENTRAL AXIS ANGLE %f \n", centralAxis );
   return( result );
@@ -236,7 +242,7 @@ ObjectFeature *getFeatures( cv::Mat &boundingBox, cv::Mat &regionMap, cv::Mat &c
   
   results->eigenVal1 = tempOrientedInfo[9];
   results->eigenVal2 = tempOrientedInfo[10];
-  results->excentricity = tempOrientedInfo[11];
+  results->eccentricity = tempOrientedInfo[11];
   
   float fillRatio = ptsInOrientedBox( results, regionMap ); 
   results->orientedFillRatio = fillRatio; 
@@ -257,6 +263,6 @@ void printFeatures( ObjectFeature *feature ){
   printf("Central Axis Angle %f \n", feature->centralAxisAngle );
   printf("EgienVal 1 %f \n", feature->eigenVal1 );
   printf("EigenVal 2 %f \n", feature->eigenVal2 );
-  printf("Excentricity %f \n", feature->excentricity );
+  printf("Excentricity %f \n", feature->eccentricity );
   printf("Oriented Fill Ratio %f \n", feature->orientedFillRatio );
 }
