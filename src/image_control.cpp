@@ -72,6 +72,9 @@ cv::Mat prepImage( cv::Mat &src, cv::Mat &regionMap, cv::Mat &centroid, cv::Mat 
   elementS.release();
   elementG.release(); 
   size.release();
+  grayscaleMat.release();
+  binaryThresh.release();
+  copy.release();
 
   return(grow);
 }

@@ -15,10 +15,44 @@
 #include "featureDB_ops.h"
 #include "pipeline_control.h"
 #include "score_test.h"
+#include "meta_analysis.h"
 
 using namespace std;
 
 int main(int argc, char *argv[]) {
+
+  char *fileName;
+
+  //Process inputs
+  if(argc < 2) {
+    printf("Usage: %s <featureDB filename> (<meta-analysis flag = 1> <classifier type> (<additional params>)\n", argv[0]);
+    printf("Executing this program with the meta-analysis flag set to 1 will enable meta-analysis mode.\n");
+    printf("In meta-analysis mode:\n");
+    printf("    New data cannot be written to the given DB\n");
+    printf("    The centered object in view will be classified when the user presses 'return'\n");
+    printf("    The user can indicate that they are done classifying by pressing 'esc'\n");
+    printf("\nClassifier options:\n    0: Scaled pairwise Euclidean distance\n    1: k-Nearest Neighbors -- An additional argument may be used to specify the k value (default 5)\n");
+    return -1;
+  }
+  fileName = argv[1];
+
+  if(atoi(argv[2]) == 1) {
+    if(argc < 4) {
+      printf("If you want to run in meta-analysis mode, please enter a classifer type:\n");
+      printf("\nClassifier options:\n    0: Scaled pairwise Euclidean distance\n    1: k-Nearest Neighbors -- An additional argument may be used to specify the k value (default 5)\n");   
+      return -1;
+    }
+    printf("Running in meta-analysis mode.\n");
+    cv::Mat confMat = metaAnalysis_pipeline(fileName, argc, argv);
+    
+    //Can do analytics here
+    //    printConfMat(confMat);
+    printf("\n\n");
+    printLabels(fileName);
+    cout << "ConfMat = " << endl << " " << confMat << endl << endl;
+
+    return 0;
+  }
 
   //Declare variables
   cv::VideoCapture *capdev;
@@ -27,19 +61,11 @@ int main(int argc, char *argv[]) {
   
   char curObjLabel[255] = "UNKNOWN -- press j to classify";
   char displayProcess[255] = "Display Process"; 
-  
-  char *fileName;
+
   State state = idle;
   int keyPress;
   int threshValue = 150;
   int centerObj = -9999;
-
-  //Process inputs
-  if(argc < 2) {
-    printf("Usage: %s <featureDB filename>\n", argv[0]);
-    return -1;
-  }
-  fileName = argv[1];
 
   //Initialize necessary memory
 
@@ -52,7 +78,7 @@ int main(int argc, char *argv[]) {
   }
 
   //Set up viewing windows
-	cv::namedWindow( displayProcess, 1 );
+  cv::namedWindow( displayProcess, 1 );
 
   //Main loop
   do {
@@ -64,15 +90,8 @@ int main(int argc, char *argv[]) {
       state = recog_euc;
     else if(keyPress == 107) //k to recognize with k-nearest neighbors
       state = recog_knn;
-    else if(keyPress == 108){ //l to see labels in DB
-      int n0;
-      char **labels = getLabels(&n0, fileName);
-      for(int i = 0; i < n0; i++) {
-	printf("Label %d: %s\n", i, labels[i]);
-	free(labels[i]);
-      }
-      free(labels);
-    }
+    else if(keyPress == 108) //l to see labels in DB
+      printLabels(fileName);
 
     //Initialize loop variables
     cv::Mat frame, thresh, regionMap, centroid, boundingBox, regMapDisplay, orientedBB, 
@@ -116,7 +135,7 @@ int main(int argc, char *argv[]) {
     // Create one image to display all the steps of the pipeline
     processImg.create((int)frame.size().height / 2, (int)frame.size().width * 2, frame.type());
     makeDisplayProcess( processImg, frame, regMapDisplay, orientedBB, idImg);
-	cv::imshow( displayProcess, processImg );
+    cv::imshow( displayProcess, processImg );
 
     //States: idle, training, recognizing
     switch(state) {
@@ -150,8 +169,6 @@ int main(int argc, char *argv[]) {
     case recog_euc:
     case recog_knn:
       {
-	printf("Current fucker\n");
-	printFeatures(cur);
       //printf("**Current state = recog**\n");
       
       //Calculate features

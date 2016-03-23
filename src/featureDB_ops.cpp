@@ -345,6 +345,17 @@ char **getLabels(int *n, char *fileName) {
   return labels;
 }
 
+/** Prints the list of unique labels in the database **/
+void printLabels(char *fileName) {
+  int n0;
+  char **labels = getLabels(&n0, fileName);
+  for(int i = 0; i < n0; i++) {
+    printf("Label %d: %s\n", i, labels[i]);
+    free(labels[i]);
+  }
+  free(labels);
+}
+
 float scoreEuclidean(ObjectFeature *cur, ObjectFeature *other) {
   float score = 0;
   float temp;
@@ -396,11 +407,6 @@ float scoreEuclidean(ObjectFeature *cur, ObjectFeature *other) {
 
     Scoring is done via k_nearestNeighbors using Euclidean distance **/
 void *k_nearestNeighbors(ObjectFeature *cur, char *fileName, int k, char *match) {
-
-  printf("Current fucker in the function:\n");
-  printFeatures(cur);
-
-
 
   int numVectors, numLabels, *frequencies;
   char **labels, nearestLabels[k][255];

@@ -9,8 +9,8 @@ typedef struct {
   char label[255];
 }DistanceLabelPair;
 
-const int EUC_DIST = 81;
-const int K_NEIGH = 10;
+const int EUC_DIST = 0;
+const int K_NEIGH = 1;
 
 inline float i_mean(float x, float y);
 inline float i_stddev(float x, float y);
@@ -38,6 +38,9 @@ void scaledEuclidean( ObjectFeature *feature, char *fileInName, char *match );
 /** Returns a list of unique labels in the given file, also passes the size of that array
     by reference **/
 char **getLabels(int *n, char *fileName);
+
+/** Prints the list of unique labels in the database **/
+void printLabels(char *fileName);
 
 float scoreFeatures(ObjectFeature *cur, ObjectFeature *other, int distanceMetric);
 
