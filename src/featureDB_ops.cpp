@@ -44,6 +44,51 @@ float n_std(float *x, int n) {
   return sqrt(ssd / n);
 }
 
+/** Returns the Euclidean distance between vectors cur and other using pre-calculated
+    standard deviations for each dimensions across all examples in a batch (file) **/
+float n_eucDist(ObjectFeature *cur, ObjectFeature *other, float *std_devs) {
+  float temp, dist = 0;
+
+  temp = (cur->unOrientedBoundingBox - other->unOrientedBoundingBox) / std_devs[0]; 
+  //dist += isnan(temp) ? 0 : temp;
+  
+  //WIDTH TO HEIGHT RATIO
+  temp = ( cur->width2Height - other->width2Height ) / std_devs[1];
+  if(!(isnan(temp) || isinf(temp))) {
+    dist += temp;
+  }
+
+  //FILL RATIO
+  temp = ( cur->fillRatio - other->fillRatio ) / std_devs[2];
+  //dist += isnan(temp) ? 0 : temp;
+
+  // EIGEN VALUE 1
+  temp = ( cur->eigenVal1 - other->eigenVal1 ) / std_devs[3];
+  //dist += isnan(temp) ? 0 : temp;
+  
+  // EIGNE VALUE 2
+  temp = ( cur->eigenVal2 - other->eigenVal2 ) / std_devs[4];
+  //dist += isnan(temp) ? 0 : temp;
+  
+  // ECCENTRICITY
+  temp = ( cur->eccentricity - other->eccentricity ) / std_devs[5];
+  if(!(isnan(temp) || isinf(temp))) {
+    dist += temp;
+  }
+  
+  // ORIENTED BOUNDING BOX compare fill ratio?
+  temp = ( cur->orientedFillRatio - other->orientedFillRatio ) / std_devs[6];
+  if(!(isnan(temp) || isinf(temp))) {
+    dist += temp;
+  }
+  
+  return fabs(dist);
+}
+
+bool distanceLabelPairComparator(DistanceLabelPair a, DistanceLabelPair b) {
+  return a.dist < b.dist;
+}
+
 /** Calculate the standard deviation for all vectors across all dimensions and store them
     (by reference) in std_devs **/
 void vector_std(float *std_devs, ObjectFeature *vectors, int numVectors) {
@@ -53,6 +98,8 @@ void vector_std(float *std_devs, ObjectFeature *vectors, int numVectors) {
   float a_fillRatio[numVectors];
   float a_eigenVal1[numVectors];
   float a_eigenVal2[numVectors];
+  float a_eccentricity[numVectors];
+  float a_orientedFillRatio[numVectors];
 
   //Populate the arrays
   for(int i = 0; i < numVectors; i++) {
@@ -60,7 +107,9 @@ void vector_std(float *std_devs, ObjectFeature *vectors, int numVectors) {
     a_width2Height[i] = vectors[i].width2Height;
     a_fillRatio[i] = vectors[i].fillRatio;
     a_eigenVal1[i] = vectors[i].eigenVal1;
-    a_eigenVal2[i] = vectors[i].eigenVal2;;
+    a_eigenVal2[i] = vectors[i].eigenVal2;
+    a_eccentricity[i] = vectors[i].eccentricity;
+    a_orientedFillRatio[numVectors] = vectors[i].orientedFillRatio;
   }
 
   std_devs[0] = n_std(a_unOrientedBoundingBox, numVectors);
@@ -68,6 +117,8 @@ void vector_std(float *std_devs, ObjectFeature *vectors, int numVectors) {
   std_devs[2] = n_std(a_fillRatio, numVectors);
   std_devs[3] = n_std(a_eigenVal1, numVectors);
   std_devs[4] = n_std(a_eigenVal2, numVectors);
+  std_devs[5] = n_std(a_eccentricity, numVectors);
+  std_devs[6] = n_std(a_orientedFillRatio, numVectors);
 }
 
 void writeFeatureToFile( ObjectFeature *feature, char *fileOutName ){
@@ -136,11 +187,26 @@ ObjectFeature *getVectors(int *n, char *fileInName) {
     fread( &tempResult.eccentricity, sizeof(float), 1, fin );
     fread( &tempResult.orientedFillRatio, sizeof(float), 1, fin);
 
+    if( debug ){
+      printf("Read 1 %d \n", index);
+      printf( "Read 2 %s\n", tempResult.id);
+      printf( "Read 3 %f \n", tempResult.unOrientedBoundingBox);
+      printf( "Read 4 %f \n", tempResult.width2Height );
+      printf( "Read 5 %f\n", tempResult.fillRatio);
+      printf( "Read 6 %d\n", tempResult.size);
+      printf("Read 7 %f \n", tempResult.centralAxisAngle );
+      printf("Read 8 %f \n", tempResult.eigenVal1 );
+      printf("Read 9 %f \n", tempResult.eigenVal2 );
+      printf("Read 10 %f \n", tempResult.eccentricity );
+      printf("Read 11 %f \n", tempResult.orientedFillRatio );
+    }
+
     vectors = (ObjectFeature *)realloc(vectors, sizeof(ObjectFeature) * (count + 1));
     if(!vectors) {
       free(vectors);
       exit(-1);
     }
+    vectors[count] = tempResult;
     count++;
   }
   fclose(fin);
@@ -152,7 +218,7 @@ ObjectFeature *getVectors(int *n, char *fileInName) {
 // find the best result from the database file.
 // *feature is the feature we are passing in to compare
 // *fileInName is the database file
-char *findBestFeatureResult( ObjectFeature *feature, char *fileInName ){
+void scaledEuclidean( ObjectFeature *feature, char *fileInName, char *match ){
 
   if( debug ){
     printf("reading in a file\n");
@@ -170,26 +236,14 @@ char *findBestFeatureResult( ObjectFeature *feature, char *fileInName ){
   // Read in entire Database!! 
   while( ( fread(&index, sizeof(int), 1 , fin )) != 0 ){
     fread( tempResult.id, sizeof(char), 255, fin );
-    
-
     fread( &tempResult.unOrientedBoundingBox, sizeof(float), 1, fin);
-    
-
     fread( &tempResult.width2Height, sizeof(float), 1, fin);
-    
-
     fread( &tempResult.fillRatio, sizeof(float), 1, fin);
-    // NEED TO ADD OTHER FEATURES
     fread( &tempResult.size, sizeof(int), 1, fin );
-    
     fread( &tempResult.centralAxisAngle, sizeof(float), 1, fin );
-    
     fread( &tempResult.eigenVal1, sizeof(float), 1, fin );
-    
     fread( &tempResult.eigenVal2, sizeof(float), 1, fin ); 
-
     fread( &tempResult.eccentricity, sizeof(float), 1, fin );
-    
     fread( &tempResult.orientedFillRatio, sizeof(float), 1, fin);
     
 
@@ -210,20 +264,21 @@ char *findBestFeatureResult( ObjectFeature *feature, char *fileInName ){
     // This would use feature! 
     
     //memcpy((void *)(result), (void *)&tempResult, sizeof(ObjectFeature));
-    if( debug ){
-      printf( "Copy 1 %s\n", result->id);
-      printf( "Copy 2 %f \n", result->unOrientedBoundingBox);
-      printf( "Copy 3 %f \n", result->width2Height );
-      printf( "Copy 4 %f\n", result->fillRatio);
-      printf( "Copy 5 %d \n", result->size);
-      printf( "Copy 6 %f \n", result->centralAxisAngle );
-      printf( "Copy 7 %f\n", result->eigenVal1);  
-      printf( "Copy 8 %f \n", result->eigenVal2);
-      printf( "Copy 9 %f\n", result->eccentricity);
-      printf( "Copy 10 %f\n", result->orientedFillRatio);
-    }
+    // if( debug ){
+    //   printf( "Copy 1 %s\n", result->id);
+    //   printf( "Copy 2 %f \n", result->unOrientedBoundingBox);
+    //   printf( "Copy 3 %f \n", result->width2Height );
+    //   printf( "Copy 4 %f\n", result->fillRatio);
+    //   printf( "Copy 5 %d \n", result->size);
+    //   printf( "Copy 6 %f \n", result->centralAxisAngle );
+    //   printf( "Copy 7 %f\n", result->eigenVal1);  
+    //   printf( "Copy 8 %f \n", result->eigenVal2);
+    //   printf( "Copy 9 %f\n", result->eccentricity);
+    //   printf( "Copy 10 %f\n", result->orientedFillRatio);
+    // }
 
-    score = scoreFeatures(feature, &tempResult, EUC_DIST);
+    //score = scoreFeatures(feature, &tempResult, EUC_DIST);
+    score = scoreEuclidean(feature, &tempResult);
     printf("Score of %s vs max: %f, %f\n", tempResult.id, score, max);
     if(score > max) {
       printf("$$$ New best score! $$$\n");
@@ -236,7 +291,7 @@ char *findBestFeatureResult( ObjectFeature *feature, char *fileInName ){
   int closed = fclose(fin);
   
   printf("Returning %s\n", result->id);
-  return(result->id);
+  strcpy(match, result->id);
 }
 
 /** Returns a list of unique labels in the given file, also passes the size of that array
@@ -259,7 +314,7 @@ char **getLabels(int *n, char *fileName) {
     fread( &tempResult.width2Height, sizeof(float), 1, fin);
     fread( &tempResult.fillRatio, sizeof(float), 1, fin);
 	// NEED TO ADD OTHER FEATURES 
-	fread( &tempResult.size, sizeof(int), 1, fin );
+    fread( &tempResult.size, sizeof(int), 1, fin );
     fread( &tempResult.centralAxisAngle, sizeof(float), 1, fin );
     fread( &tempResult.eigenVal1, sizeof(float), 1, fin );
     fread( &tempResult.eigenVal2, sizeof(float), 1, fin ); 
@@ -290,48 +345,47 @@ char **getLabels(int *n, char *fileName) {
   return labels;
 }
 
-float scoreFeatures(ObjectFeature *cur, ObjectFeature *other, int distanceMetric) {
-  float score = -9999;
-
-  switch(distanceMetric) {
-  case EUC_DIST:
-    return scoreEuclidean(cur, other);
-    break;
-  case K_NEIGH:
-    //Call function
-    break;
-  default:
-    //Error
-    break;
-  }
-  
-  return score;
-}
-
 float scoreEuclidean(ObjectFeature *cur, ObjectFeature *other) {
   float score = 0;
+  float temp;
 
   //Iterate through all features, calculating  Euclidean distance between them
   //UNORIENTED BOUNDING BOX
-  score += i_euc(cur->unOrientedBoundingBox, other->unOrientedBoundingBox);
+  temp = i_euc(cur->unOrientedBoundingBox, other->unOrientedBoundingBox);
+  //score += isnan(temp) ? 0 : temp;
   
   //WIDTH TO HEIGHT RATIO
-  score += i_euc( cur->width2Height, other->width2Height );
+  temp = i_euc( cur->width2Height, other->width2Height );
+  if(!(isnan(temp) || isinf(temp))) {
+    score += temp;
+  }
+  //score += isnan(temp) ? 0 : temp;
 
   //FILL RATIO
-  score += i_euc( cur->fillRatio,  other->fillRatio );
+  temp = i_euc( cur->fillRatio,  other->fillRatio );
+  //score += isnan(temp) ? 0 : temp;
 
   // EIGEN VALUE 1
-  score += i_euc( cur->eigenVal1, other->eigenVal1 );
+  temp = i_euc( cur->eigenVal1, other->eigenVal1 );
+  //score += isnan(temp) ? 0 : temp;
   
   // EIGNE VALUE 2
-  score += i_euc( cur->eigenVal2, other->eigenVal2 );
+  temp = i_euc( cur->eigenVal2, other->eigenVal2 );
+  //score += isnan(temp) ? 0 : temp;
   
   // ECCENTRICITY
-  score += i_euc( cur->eccentricity, other->eccentricity );
+  temp = i_euc( cur->eccentricity, other->eccentricity );
+  if(!(isnan(temp) || isinf(temp))) {
+    score += temp;
+  }
+  //score += isnan(temp) ? 0 : temp;
   
   // ORIENTED BOUNDING BOX compare fill ratio?
-  score += i_euc( cur->orientedFillRatio, other->orientedFillRatio );
+  temp = i_euc( cur->orientedFillRatio, other->orientedFillRatio );
+  if(!(isnan(temp) || isinf(temp))) {
+    score += temp;
+  }
+  //score += isnan(temp) ? 0 : temp;
 
   score = fabs(score) * -1;
   return score;
@@ -342,16 +396,24 @@ float scoreEuclidean(ObjectFeature *cur, ObjectFeature *other) {
 
     Scoring is done via k_nearestNeighbors using Euclidean distance **/
 void *k_nearestNeighbors(ObjectFeature *cur, char *fileName, int k, char *match) {
-  int numVectors, numLabels;
-  char **labels, nearestLabels[k];
-  float nearestDistances[k], *std_devs;
+
+  printf("Current fucker in the function:\n");
+  printFeatures(cur);
+
+
+
+  int numVectors, numLabels, *frequencies;
+  char **labels, nearestLabels[k][255];
+  float nearestDistances[k], *std_devs, curDist;
   ObjectFeature *vectors;
 
-  //Get a list of labels (necessary?)
-  //labels = getLabels(&numLabels, fileName);
+  //Get a list of labels (is this even necessary?)
+  labels = getLabels(&numLabels, fileName);
+  frequencies = (int *)calloc(numLabels, sizeof(int));
 
   //Get a list of vectors
   vectors = getVectors(&numVectors, fileName);
+  DistanceLabelPair pairs[numVectors];
 
   //Initialize the set of best distances to ensure that we populate it
   for(int i = 0; i < k; i++) {
@@ -365,9 +427,40 @@ void *k_nearestNeighbors(ObjectFeature *cur, char *fileName, int k, char *match)
   //For each vector in the array:
   for(int i = 0; i < numVectors; i++) {
     //Score the vector vs cur (dist over each dimension summed)
+    curDist = n_eucDist(cur, &vectors[i], std_devs);
     
-    //Check to see if it ranks in top k
+    //Store the distance label pair
+    pairs[i].dist = curDist;
+    strcpy(pairs[i].label, vectors[i].id);
+    printf("Pair %d: dist = %f, label = %s\n", i, pairs[i].dist, pairs[i].label);
   }
+
+  //Sort the pairs
+  std::vector<DistanceLabelPair> pairVector (pairs, pairs+numVectors);
+  std::sort(pairVector.begin(), pairVector.end(), distanceLabelPairComparator);
+  DistanceLabelPair *sortedPairs = &pairVector[0];
+  
+
+  //See how many times each class appears in the k closest neighbors
+  for(int i = 0; i < k; i++) {
+    printf("Class %d: %s\n", i, sortedPairs[i].label);
+    for(int j = 0; j < numLabels; j++) {
+      if(strcmp(sortedPairs[i].label, labels[j]) == 0) {
+	frequencies[j]++;
+      }
+    }
+  }
+  
+  //Which class appears the most?
+  int max_idx = 0;
+  for(int i = 1; i < numLabels; i++) {
+    if(frequencies[i] > frequencies[max_idx]) {
+      max_idx = i;
+    }
+  }
+
+  //Pass the determined label by reference
+  strcpy(match, labels[max_idx]);
 
   //Clean up
   for(int i = 0; i < numLabels; i++) {
@@ -376,4 +469,5 @@ void *k_nearestNeighbors(ObjectFeature *cur, char *fileName, int k, char *match)
   free(labels);
   free(vectors);
   free(std_devs);
+  free(frequencies);
 }

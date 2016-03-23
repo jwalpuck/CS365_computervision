@@ -60,9 +60,11 @@ int main(int argc, char *argv[]) {
 
     if(keyPress == 105) //i to train
       state = train;
-    else if(keyPress == 106) //j to recognize
-      state = recog;
-    else if(keyPress == 107){ //k to see labels in DB
+    else if(keyPress == 106) //j to recognize with scaled euclidean
+      state = recog_euc;
+    else if(keyPress == 107) //k to recognize with k-nearest neighbors
+      state = recog_knn;
+    else if(keyPress == 108){ //l to see labels in DB
       int n0;
       char **labels = getLabels(&n0, fileName);
       for(int i = 0; i < n0; i++) {
@@ -108,7 +110,7 @@ int main(int argc, char *argv[]) {
     
     // JACK: for the last stage of the display to work I need cur->id to update its value,
     //   where in the pipeline should this happen? 
-    printf("CUR ID %s\n", curObjLabel );
+    //printf("CUR ID %s\n", curObjLabel );
     //cv::putText( idImg, curObjLabel, center, cv::FONT_HERSHEY_COMPLEX_SMALL, 0.8, cvScalar( 0, 0,250), 1, CV_AA);
     
     // Create one image to display all the steps of the pipeline
@@ -145,8 +147,11 @@ int main(int argc, char *argv[]) {
       }
 
     /** If recognizing, score object in view, compare to DB, output best match **/
-    case recog:
+    case recog_euc:
+    case recog_knn:
       {
+	printf("Current fucker\n");
+	printFeatures(cur);
       //printf("**Current state = recog**\n");
       
       //Calculate features
@@ -154,10 +159,18 @@ int main(int argc, char *argv[]) {
       //cur = (ObjectFeature *)malloc(sizeof(*cur));
       //cur = getFeatures(boundingBox, regionMap, centroid, centerObj);
 
-      //Compare cur feature vector with DB to get the best score
-      char *match = findBestFeatureResult(cur, fileName);
+	char match[255];
+	//Compare cur feature vector with DB to get the best score
+	if(state == recog_euc) {
+	  scaledEuclidean(cur, fileName, match);
+	}
+	else { //k-nearest neighbors
+	  int k = 5;
+	  k_nearestNeighbors(cur, fileName, k, match);
+	}
 
-	  strcpy( curObjLabel, (const char *)match);
+      //Store the current object lable to be displayed
+      strcpy( curObjLabel, (const char *)match);
 	  
       //Output label
       printf("Best guess of the centered object in frame: %s\n", match);
@@ -180,10 +193,6 @@ int main(int argc, char *argv[]) {
     processImg.release();
 
   }while(keyPress != 27);
-
-  // JACK: IS THIS OK TO MOVE HERE? !?!?!?!?!? ***********************************
-  //Clean up
-  //free(cur);
   
   //Clean up outer vars
   cv::destroyWindow( displayProcess );

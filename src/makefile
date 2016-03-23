@@ -28,11 +28,11 @@ LDLIBS = -lopencv_core -lopencv_highgui -lopencv_video -lopencv_videoio -lopencv
 
 BINDIR = ../bin
 
-_DEPS = feature_code.h featureDB_ops.h image_control.h segment.h pipeline_control.h score_test.h
+_DEPS = feature_code.h featureDB_ops.h image_control.h segment.h pipeline_control.h
 DEPS = $(patsubst %, $(IDIR)/%,$(_DEPS))
 
 # Temporarily removed 2D_imgRecognition.o to avoid "multiple declaration of main" error
-OBJ = feature_code.o featureDB_ops.o image_control.o segment.o pipeline_control.o score_test.o
+OBJ = feature_code.o featureDB_ops.o image_control.o segment.o pipeline_control.o
 
 %.o: %.cpp $(DEPS)
 	$(CC) -c -o $@ $< $(CFLAGS)
