@@ -49,14 +49,14 @@ float fillRatio( cv::Mat &boundingBox, cv::Mat &regMap, int idx){
 }
 
 
-// IS THIS RIGHT???? 
+// IS THIS RIGHT???? NO
 // I am not sure the area computation is correct. 
 float ptsInOrientedBox( ObjectFeature *feature, cv::Mat &regMap ){
   int count = 0;
   float area = 0; 
   //printf(" %d %d %d %d \n", (int)feature->orientedBoundingBox[0], (int)feature->orientedBoundingBox[4], (int)feature->orientedBoundingBox[3], (int)feature->orientedBoundingBox[7] );
   for( int i = (int)feature->orientedBoundingBox[0]; i < (int)feature->orientedBoundingBox[4]; i++){
-    for( int j = (int)feature->orientedBoundingBox[3]; j < (int)feature->orientedBoundingBox[7]; j++){
+    for( int j = (int)feature->orientedBoundingBox[7]; j < (int)feature->orientedBoundingBox[3]; j++){
    	  //printf(" j %d i %d \n", j, i );
       if (regMap.at<int>(j, i) >= 0 ){
 		count ++; 
@@ -159,6 +159,7 @@ float *getCentralAxisAngle( cv::Mat &regMap, cv::Mat &centroids, int idx, int re
       maxYX = x;
     }
     //printf("PTS: %f %f %f %f %f %f %f %f \n", minx, minXY, minYX, miny, maxx, maxXY, maxYX, maxy ); 
+    
   }
 
   float imgMinx, imgMaxx, imgMiny, imgMaxy;

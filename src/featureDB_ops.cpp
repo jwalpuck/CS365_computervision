@@ -80,7 +80,6 @@ void writeFeatureToFile( ObjectFeature *feature, char *fileOutName ){
   FILE *featureFile = fopen( fileOutName, "a");
   
   // Write the struct to the file.
-  // Need to decide if we want to do this one at a time. 
   fwrite( &hold, sizeof(int), 1, featureFile );
   fwrite(feature->id, sizeof(char), 255, featureFile );
   fwrite(&feature->unOrientedBoundingBox, sizeof(float), 1, featureFile );
@@ -101,6 +100,12 @@ void writeFeatureToFile( ObjectFeature *feature, char *fileOutName ){
     printf("write 3 %f\n", feature->unOrientedBoundingBox);
     printf("write 4 %f \n", feature->width2Height);
     printf("write 5 %f \n", feature->fillRatio);
+    printf("write 6 %d \n", feature->size);
+    printf("write 7 %f \n", feature->centralAxisAngle );
+    printf("write 8 %f \n", feature->eigenVal1 );
+    printf("write 9 %f \n", feature-> eigenVal2 );
+    printf("write 10 %f \n", feature->eccentricity );
+    printf("write 11 %f \n", feature->orientedFillRatio );
   }
 
   fclose( featureFile );
@@ -188,13 +193,19 @@ char *findBestFeatureResult( ObjectFeature *feature, char *fileInName ){
     fread( &tempResult.orientedFillRatio, sizeof(float), 1, fin);
     
 
-    if( debug ){
+   // if( debug ){
       printf("Read 1 %d \n", index);
       printf( "Read 2 %s\n", tempResult.id);
       printf( "Read 3 %f \n", tempResult.unOrientedBoundingBox);
       printf( "Read 4 %f \n", tempResult.width2Height );
       printf( "Read 5 %f\n", tempResult.fillRatio);
-    }
+      printf( "Read 6 %d\n", tempResult.size);
+      printf("Read 7 %f \n", tempResult.centralAxisAngle );
+      printf("Read 8 %f \n", tempResult.eigenVal1 );
+      printf("Read 9 %f \n", tempResult.eigenVal2 );
+      printf("Read 10 %f \n", tempResult.eccentricity );
+      printf("Read 11 %f \n", tempResult.orientedFillRatio );
+    //}
     // Would want to put some comparison operator here, classifier stuff
     // This would use feature! 
     
@@ -204,6 +215,12 @@ char *findBestFeatureResult( ObjectFeature *feature, char *fileInName ){
       printf( "Copy 2 %f \n", result->unOrientedBoundingBox);
       printf( "Copy 3 %f \n", result->width2Height );
       printf( "Copy 4 %f\n", result->fillRatio);
+      printf( "Copy 5 %d \n", result->size);
+      printf( "Copy 6 %f \n", result->centralAxisAngle );
+      printf( "Copy 7 %f\n", result->eigenVal1);  
+      printf( "Copy 8 %f \n", result->eigenVal2);
+      printf( "Copy 9 %f\n", result->eccentricity);
+      printf( "Copy 10 %f\n", result->orientedFillRatio);
     }
 
     score = scoreFeatures(feature, &tempResult, EUC_DIST);
@@ -314,7 +331,7 @@ float scoreEuclidean(ObjectFeature *cur, ObjectFeature *other) {
   score += i_euc( cur->eccentricity, other->eccentricity );
   
   // ORIENTED BOUNDING BOX compare fill ratio?
-  //score += i_euc( cur->orientedFillRatio, other->orientedFillRatio );
+  score += i_euc( cur->orientedFillRatio, other->orientedFillRatio );
 
   score = fabs(score) * -1;
   return score;
