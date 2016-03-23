@@ -187,13 +187,13 @@ char *findBestFeatureResult( ObjectFeature *feature, char *fileInName ){
     fread( &tempResult.eigenVal1, sizeof(float), 1, fin );
     
     fread( &tempResult.eigenVal2, sizeof(float), 1, fin ); 
-    
+
     fread( &tempResult.eccentricity, sizeof(float), 1, fin );
     
     fread( &tempResult.orientedFillRatio, sizeof(float), 1, fin);
     
 
-   // if( debug ){
+   if( debug ){
       printf("Read 1 %d \n", index);
       printf( "Read 2 %s\n", tempResult.id);
       printf( "Read 3 %f \n", tempResult.unOrientedBoundingBox);
@@ -205,7 +205,7 @@ char *findBestFeatureResult( ObjectFeature *feature, char *fileInName ){
       printf("Read 9 %f \n", tempResult.eigenVal2 );
       printf("Read 10 %f \n", tempResult.eccentricity );
       printf("Read 11 %f \n", tempResult.orientedFillRatio );
-    //}
+    }
     // Would want to put some comparison operator here, classifier stuff
     // This would use feature! 
     
