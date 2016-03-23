@@ -25,6 +25,7 @@ int main(int argc, char *argv[]) {
   cv::Mat frame, thresh, boundingBox;
   ObjectFeature *cur;
   
+  char curObjLabel[255] = "UNKNOWN -- press j to classify";
   char displayProcess[255] = "Display Process"; 
   
   char *fileName;
@@ -44,7 +45,7 @@ int main(int argc, char *argv[]) {
 
   //Open image stream
   //capdev = new cv::VideoCapture(0); //Torrie
-  capdev = new cv::VideoCapture(0); //Jack
+  capdev = new cv::VideoCapture(1); //Jack
   if(!capdev->isOpened()) {
     printf("Unable to open video device\n");
     return -1;
@@ -90,10 +91,7 @@ int main(int argc, char *argv[]) {
     //Create a region map with a bounding box on the centered object
     regMapDisplay.create((int)regionMap.size().height, (int)regionMap.size().width, frame.type());
     makeRegMapDisplay(regMapDisplay, regionMap, centroid, boundingBox, centerObj); //Populate the image
-    
-    //Calculate features
-    cur = (ObjectFeature *)malloc(sizeof(*cur));
-      
+          
     // get the region size
     cur = getFeatures(boundingBox, regionMap, centroid, centerObj);
     
@@ -110,8 +108,8 @@ int main(int argc, char *argv[]) {
     
     // JACK: for the last stage of the display to work I need cur->id to update its value,
     //   where in the pipeline should this happen? 
-    printf("CUR ID %s\n", cur->id );
-    cv::putText( idImg, cur->id, center, cv::FONT_HERSHEY_COMPLEX_SMALL, 0.8, cvScalar( 0, 0,250), 1, CV_AA);
+    printf("CUR ID %s\n", curObjLabel );
+    //cv::putText( idImg, curObjLabel, center, cv::FONT_HERSHEY_COMPLEX_SMALL, 0.8, cvScalar( 0, 0,250), 1, CV_AA);
     
     // Create one image to display all the steps of the pipeline
     processImg.create((int)frame.size().height / 2, (int)frame.size().width * 2, frame.type());
@@ -159,7 +157,7 @@ int main(int argc, char *argv[]) {
       //Compare cur feature vector with DB to get the best score
       char *match = findBestFeatureResult(cur, fileName);
 
-	  strcpy( cur->id, (const char *)match);
+	  strcpy( curObjLabel, (const char *)match);
 	  
       //Output label
       printf("Best guess of the centered object in frame: %s\n", match);
@@ -172,6 +170,7 @@ int main(int argc, char *argv[]) {
     }
 
     //Clean up frame-specific vars
+    free(cur);
     frame.release();
     thresh.release();
     regionMap.release();
@@ -184,7 +183,7 @@ int main(int argc, char *argv[]) {
 
   // JACK: IS THIS OK TO MOVE HERE? !?!?!?!?!? ***********************************
   //Clean up
-  free(cur);
+  //free(cur);
   
   //Clean up outer vars
   cv::destroyWindow( displayProcess );
