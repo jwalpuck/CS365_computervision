@@ -1,24 +1,24 @@
 # Dwarf compiler
-CC = g++
+#CC = g++
 # Torrie OSX
-#CC = clang++
+CC = clang++
 
 CXX = $(CC)
 
 # Dwarf include paths
 IDIR = ../include
-CFLAGS = -I$(IDIR) -O2 # opencv includes are in /usr/include
+#CFLAGS = -I$(IDIR) -O2 # opencv includes are in /usr/include
 # Torrie OSX
-#CFLAGS = -I/opt/local/include -I../include
+CFLAGS = -I/opt/local/include -I../include
 
 CXXFLAGS = $(CFLAGS)
 
 # Dwarf Library paths
 # LDFLAGS = -L/usr/lib64 # opencv libraries are here
 # Jack Library paths
-LDFLAGS = `pkg-config opencv --cflags --libs`
+#LDFLAGS = `pkg-config opencv --cflags --libs`
 # Torrie OSX
-#LDFLAGS = -L/opt/local/lib
+LDFLAGS = -L/opt/local/lib
 
 
 # Dwarf libraries

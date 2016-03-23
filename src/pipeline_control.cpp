@@ -71,7 +71,7 @@ int main(int argc, char *argv[]) {
 
   //Open image stream
   //capdev = new cv::VideoCapture(0); //Torrie
-  capdev = new cv::VideoCapture(1); //Jack
+  capdev = new cv::VideoCapture(0); //Jack
   if(!capdev->isOpened()) {
     printf("Unable to open video device\n");
     return -1;

@@ -119,8 +119,8 @@ float *getCentralAxisAngle( cv::Mat &regMap, cv::Mat &centroids, int idx, int re
     }
   }
   centralAxis = 0.5 * atan2( (2 * mu11),  ( mu20 - mu02 ));
-  eigenVal2 = (( mu20 + mu02 ) / 2) + (sqrt( 4 * mu11 * mu11 + ( mu20 - mu02 ))/ 2);
-  eigenVal1 =  (( mu20 + mu02 ) / 2) - (sqrt( 4 * mu11 * mu11 + ( mu20 - mu02 ))/ 2);
+  eigenVal2 = (( mu20 + mu02 ) / 2) + (sqrt( 4 * mu11 * mu11 + (( mu20 - mu02 ) * ( mu20 - mu02 )))/ 2);
+  eigenVal1 =  (( mu20 + mu02 ) / 2) - (sqrt( 4 * mu11 * mu11 + (( mu20 - mu02 ) * ( mu20 - mu02 )))/ 2);
   eccentricity = sqrt( 1 - (eigenVal1 / eigenVal2 )); 
   
   //------------------------------ Get oriented bounding box ----------------------------------
