@@ -97,7 +97,7 @@ int getCenteredObject(cv::Mat &frame, cv::Mat &boundingBox, cv::Mat &centroid) {
   return centerObj;
 }
 
-
+// Build the unoriented bounding box into the display, this also shows the thresholded results
 void makeRegMapDisplay(cv::Mat &regMapDisplay, cv::Mat &regionMap, cv::Mat &centroid, cv::Mat &boundingBox, int centerObj) {
   int size = 0;
   for( int i = 0; i < (int)regionMap.size().height; i++){
@@ -105,7 +105,7 @@ void makeRegMapDisplay(cv::Mat &regMapDisplay, cv::Mat &regionMap, cv::Mat &cent
       size += regionMap.at<int>(i, j) > 0;
       regMapDisplay.at<cv::Vec3b>(cv::Point(j,i))[0] = regionMap.at<int>(i, j) == 2 ? 255 : 0;
       regMapDisplay.at<cv::Vec3b>(cv::Point(j,i))[1] = regionMap.at<int>(i, j) == 1 ? 255 : 0;
-      regMapDisplay.at<cv::Vec3b>(cv::Point(j,i))[2] = (regionMap.at<int>(i, j)) == 0 ? 255 : 0; 
+      regMapDisplay.at<cv::Vec3b>(cv::Point(j,i))[2] = regionMap.at<int>(i, j) == 0 ? 255 : 0; 
     }
   }
 
@@ -114,13 +114,14 @@ void makeRegMapDisplay(cv::Mat &regMapDisplay, cv::Mat &regionMap, cv::Mat &cent
 }
 
 
+// Build the oriented bounding box and central axis into an image
 void makeOrientedBBDisplay( cv::Mat &orientedBB, cv::Mat &regionMap, ObjectFeature *feature, cv::Mat &centroid, int idx){
   //----------------------------------- oriented bounding box -------------------------
   for( int i = 0; i < (int)orientedBB.size().height; i++){
     for( int j = 0; j < (int)orientedBB.size().width; j++){
-      orientedBB.at<cv::Vec3b>(cv::Point(j,i))[0] = regionMap.at<int>(i, j) == 1 ? 255 : 0;
-      orientedBB.at<cv::Vec3b>(cv::Point(j,i))[1] = regionMap.at<int>(i, j) == 0 ? 255 : 0;
-      orientedBB.at<cv::Vec3b>(cv::Point(j,i))[2] = regionMap.at<int>(i, j) == 2 ? 255 : 0; 
+      orientedBB.at<cv::Vec3b>(cv::Point(j,i))[0] = regionMap.at<int>(i, j) == 2 ? 255 : 0;
+      orientedBB.at<cv::Vec3b>(cv::Point(j,i))[1] = regionMap.at<int>(i, j) == 1 ? 255 : 0;
+      orientedBB.at<cv::Vec3b>(cv::Point(j,i))[2] = regionMap.at<int>(i, j) == 0 ? 255 : 0; 
     }
   }
 
@@ -157,6 +158,7 @@ void makeOrientedBBDisplay( cv::Mat &orientedBB, cv::Mat &regionMap, ObjectFeatu
   cv::line( orientedBB, p4, p1, cv::Scalar(0, 255, 255), 3);
 }
 
+// Display our process in one opencv image
 void makeDisplayProcess( cv::Mat &dst, cv::Mat &frame, cv::Mat &regMapDisplay, cv::Mat &orientedBB, cv::Mat &result){
 	cv::Mat temp;
 	temp.create((int)frame.size().height, (int)frame.size().width * 4, frame.type());

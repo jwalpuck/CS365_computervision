@@ -13,6 +13,7 @@
 
 #define debug 0
 
+// -------------------- The math that helps compute the score. ---------------------------
 inline float i_mean(float x, float y) {
   return (x + y) / 2;
 }
@@ -24,6 +25,8 @@ inline float i_stddev(float x, float y) {
 inline float i_euc(float x, float y) {
   return (x - y) / i_stddev(x, y);
 }
+
+//----------------------------------------------------------------------------------------
 
 /** Return the standard deviation of x, which is of length n **/
 float n_std(float *x, int n) {
@@ -121,6 +124,7 @@ void vector_std(float *std_devs, ObjectFeature *vectors, int numVectors) {
   std_devs[6] = n_std(a_orientedFillRatio, numVectors);
 }
 
+// writes a feature to a file 
 void writeFeatureToFile( ObjectFeature *feature, char *fileOutName ){
   if( debug ){
     printf("Writing Feature to a file\n");
@@ -356,6 +360,7 @@ void printLabels(char *fileName) {
   free(labels);
 }
 
+// Scoring of results
 float scoreEuclidean(ObjectFeature *cur, ObjectFeature *other) {
   float score = 0;
   float temp;
@@ -391,7 +396,7 @@ float scoreEuclidean(ObjectFeature *cur, ObjectFeature *other) {
   }
   //score += isnan(temp) ? 0 : temp;
   
-  // ORIENTED BOUNDING BOX compare fill ratio?
+  // ORIENTED BOUNDING BOX 
   temp = i_euc( cur->orientedFillRatio, other->orientedFillRatio );
   if(!(isnan(temp) || isinf(temp))) {
     score += temp;

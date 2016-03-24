@@ -107,10 +107,7 @@ cv::Mat metaAnalysis_pipeline(char *fileName, int argc, char *argv[]) {
     center.x = centroid.at<int>(centerObj, 1);
     center.y = centroid.at<int>(centerObj, 0);
     
-    // JACK: for the last stage of the display to work I need cur->id to update its value,
-    //   where in the pipeline should this happen? 
-    //printf("CUR ID %s\n", curObjLabel );
-    //cv::putText( idImg, curObjLabel, center, cv::FONT_HERSHEY_COMPLEX_SMALL, 0.8, cvScalar( 0, 0,250), 1, CV_AA);
+    cv::putText( idImg, curObjLabel, center, cv::FONT_HERSHEY_COMPLEX_SMALL, 0.8, cvScalar( 0, 0,250), 1, CV_AA);
     
     // Create one image to display all the steps of the pipeline
     processImg.create((int)frame.size().height / 2, (int)frame.size().width * 2, frame.type());

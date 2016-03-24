@@ -49,12 +49,12 @@ float fillRatio( cv::Mat &boundingBox, cv::Mat &regMap, int idx){
 }
 
 
-// IS THIS RIGHT???? NO
-// I am not sure the area computation is correct. 
+// Compute the number of points in the oriented bounding box, divided by the area of the
+//   oriented bounding box
 float ptsInOrientedBox( ObjectFeature *feature, cv::Mat &regMap ){
   int count = 0;
-  float area = 0; 
-  //printf(" %d %d %d %d \n", (int)feature->orientedBoundingBox[0], (int)feature->orientedBoundingBox[4], (int)feature->orientedBoundingBox[3], (int)feature->orientedBoundingBox[7] );
+  float area = 0;
+  float tempx, tempy; 
   for( int i = (int)feature->orientedBoundingBox[0]; i < (int)feature->orientedBoundingBox[4]; i++){
     for( int j = (int)feature->orientedBoundingBox[7]; j < (int)feature->orientedBoundingBox[3]; j++){
    	  //printf(" j %d i %d \n", j, i );
@@ -64,11 +64,10 @@ float ptsInOrientedBox( ObjectFeature *feature, cv::Mat &regMap ){
     }
   }
   
-  float tempx = fabs(feature->orientedBoundingBox[4] - feature->orientedBoundingBox[0]);
-  float tempy = fabs(feature->orientedBoundingBox[3] - feature->orientedBoundingBox[7]);
+  tempx = fabs(feature->orientedBoundingBox[4] - feature->orientedBoundingBox[0]);
+  tempy = fabs(feature->orientedBoundingBox[3] - feature->orientedBoundingBox[7]);
   area = tempx * tempy; 
-  //printf("CHECK %d %f %f\n", count, area, count / area );
-  return( count / area );
+  return( count );
 }
 
 
@@ -87,6 +86,7 @@ int getRegionSize( cv::Mat &regMap, int idx ){
 
 
 // Get the angle that gives the orientation of the axis
+//   This also computes eigenvalues, oriented bounding box, and eccentricity
 float *getCentralAxisAngle( cv::Mat &regMap, cv::Mat &centroids, int idx, int regionSize ){
   float dx, dy;
   float mu20, mu02, mu11 = 0;
@@ -150,7 +150,6 @@ float *getCentralAxisAngle( cv::Mat &regMap, cv::Mat &centroids, int idx, int re
       maxXY = y;
     }
 
-	// SOMETHING IS WRONG HERE
     if( y < miny ){
       miny = y;
       minYX = x; 
