@@ -24,7 +24,7 @@ int main(int argc, char *argv[]) {
   char *fileName;
 
   //Process inputs
-  if(argc < 2) {
+  if(argc < 3) {
     printf("Usage: %s <featureDB filename> (<meta-analysis flag = 1> <classifier type> (<additional params>)\n", argv[0]);
     printf("Executing this program with the meta-analysis flag set to 1 will enable meta-analysis mode.\n");
     printf("In meta-analysis mode:\n");
@@ -127,10 +127,10 @@ int main(int argc, char *argv[]) {
     center.x = centroid.at<int>(centerObj, 1);
     center.y = centroid.at<int>(centerObj, 0);
 
-    cv::putText( idImg, curObjLabel, center, cv::FONT_HERSHEY_COMPLEX_SMALL, 0.8, cvScalar( 0, 0,250), 1, CV_AA);
+    cv::putText( idImg, curObjLabel, center, cv::FONT_HERSHEY_COMPLEX_SMALL, 2, cvScalar( 0, 0,250), 2, CV_AA);
     
     // Create one image to display all the steps of the pipeline
-    processImg.create((int)frame.size().height / 2, (int)frame.size().width * 2, frame.type());
+    processImg.create((int)frame.size().height / 2 , (int)frame.size().width / 2 , frame.type());
     makeDisplayProcess( processImg, frame, regMapDisplay, orientedBB, idImg);
     cv::imshow( displayProcess, processImg );
 

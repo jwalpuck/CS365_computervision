@@ -161,12 +161,12 @@ void makeOrientedBBDisplay( cv::Mat &orientedBB, cv::Mat &regionMap, ObjectFeatu
 // Display our process in one opencv image
 void makeDisplayProcess( cv::Mat &dst, cv::Mat &frame, cv::Mat &regMapDisplay, cv::Mat &orientedBB, cv::Mat &result){
 	cv::Mat temp;
-	temp.create((int)frame.size().height, (int)frame.size().width * 4, frame.type());
+	temp.create((int)frame.size().height * 2, (int)frame.size().width * 2, frame.type());
 	
 	frame.copyTo( temp.rowRange( 0, frame.rows).colRange(0, frame.cols));
 	regMapDisplay.copyTo( temp.rowRange( 0, frame.rows).colRange(frame.cols, frame.cols * 2));
-	orientedBB.copyTo( temp.rowRange( 0, frame.rows).colRange(frame.cols * 2, frame.cols * 3));
-	result.copyTo( temp.rowRange( 0, frame.rows).colRange(frame.cols*3, frame.cols*4 ));
+	orientedBB.copyTo( temp.rowRange( frame.rows, frame.rows * 2).colRange(0, frame.cols));
+	result.copyTo( temp.rowRange( frame.rows, frame.rows * 2).colRange(frame.cols, frame.cols*2 ));
 
 	cv::resize( temp, dst, dst.size(), 0, 0, cv::INTER_AREA);
 }
