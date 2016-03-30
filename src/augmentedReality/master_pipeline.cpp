@@ -22,7 +22,7 @@ void writeIntrinsicParams(char *filename, cv::Mat camera_matrix, cv::Mat distort
   char l2[255] = "DISTORTION\n";
   char space = ' ';
 
-  fwrite(l2, sizeof(char) * 255, file); 
+  fwrite(l1, sizeof(char), 255,file); 
   for(int i = 0 ; i < 3; i++) {
     for(int j = 0; j < 3; j++) {
       fwrite(&camera_matrix.at<double>(i, j), sizeof(double), 1, file);
@@ -30,8 +30,10 @@ void writeIntrinsicParams(char *filename, cv::Mat camera_matrix, cv::Mat distort
     fwrite(&space, sizeof(char), 1, file);
   }
 
+  fwrite(l2, sizeof(char), 255, file );
   for(int i = 0; i < 5; i++) {
-    
+    fwrite(&distortion.at<double>(i, 0), sizeof(double), 1, file );
+    fwrite( &space, sizeof(char), 1, file);
   }
   
   fclose(file);

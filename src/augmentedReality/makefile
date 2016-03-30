@@ -14,9 +14,9 @@ CFLAGS = -I$(IDIR) -O2 # opencv includes are in /usr/include
 CXXFLAGS = $(CFLAGS)
 
 # Dwarf Library paths
-# LDFLAGS = -L/usr/lib64 # opencv libraries are here
+LDFLAGS = -L/usr/lib64 # opencv libraries are here
 # Jack Library paths
-LDFLAGS = `pkg-config opencv --cflags --libs`
+#LDFLAGS = `pkg-config opencv --cflags --libs`
 # Torrie OSX
 #LDFLAGS = -L/opt/local/lib
 
