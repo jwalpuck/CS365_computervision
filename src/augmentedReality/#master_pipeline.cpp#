@@ -240,6 +240,8 @@ int main(int argc, char *argv[]) {
 	  cout << "Translation matrix:" << endl << m_translations << endl;
 	}
       }
+
+
       break;
     }
     }
