@@ -2,8 +2,10 @@
 
 #define MASTERPIPELINE_H
 
+#include "opencv2/opencv.hpp"
+
 enum State {idle, capture, calibrate, draw};
 
-//L8r
+void writeIntrinsicParams(char *filename, cv::Mat camera_matrix, cv::Mat distortion);
 
 #endif
