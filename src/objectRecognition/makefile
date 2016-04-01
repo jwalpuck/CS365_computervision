@@ -14,15 +14,16 @@ CFLAGS = -I$(IDIR) -O2 # opencv includes are in /usr/include
 CXXFLAGS = $(CFLAGS)
 
 # Dwarf Library paths
-# LDFLAGS = -L/usr/lib64 # opencv libraries are here
+LDFLAGS = -L/usr/lib64 # opencv libraries are here
 # Jack Library paths
-LDFLAGS = `pkg-config opencv --cflags --libs`
+#LDFLAGS = `pkg-config opencv --cflags --libs`
 # Torrie OSX
 #LDFLAGS = -L/opt/local/lib
 
 
 # Dwarf libraries
-LDLIBS = -lopencv_core -lopencv_highgui -lopencv_video -lopencv_imgproc 
+#LDLIBS = -lopencv_core -lopencv_highgui -lopencv_video -lopencv_imgproc
+LDLIBS =`pkg-config --libs opencv` 
 # Torrie OSX
 #LDLIBS = -lopencv_core -lopencv_highgui -lopencv_video -lopencv_videoio -lopencv_imgproc -lopencv_imgcodecs
 

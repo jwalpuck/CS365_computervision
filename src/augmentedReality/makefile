@@ -22,7 +22,8 @@ LDFLAGS = `pkg-config opencv --cflags --libs`
 
 
 # Dwarf libraries
-LDLIBS = -lopencv_core -lopencv_highgui -lopencv_video -lopencv_imgproc 
+#LDLIBS = -lopencv_core -lopencv_highgui -lopencv_video -lopencv_imgproc -lopencv_calib3d
+LDLIBS =`pkg-config --libs opencv` 
 # Torrie OSX
 #LDLIBS = -lopencv_core -lopencv_highgui -lopencv_video -lopencv_videoio -lopencv_imgproc -lopencv_imgcodecs
 

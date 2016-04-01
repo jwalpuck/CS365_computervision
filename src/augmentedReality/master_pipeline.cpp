@@ -15,6 +15,9 @@
 
 using namespace std;
 
+#define debug 0
+#define writeup 0
+
 void writeIntrinsicParams(char *filename, cv::Mat camera_matrix, cv::Mat distortion) {
   
   FILE *file = fopen(filename, "w+");
@@ -37,6 +40,68 @@ void writeIntrinsicParams(char *filename, cv::Mat camera_matrix, cv::Mat distort
   fclose(file);
   printf("Parameters written to file %s\n", filename);
 }
+
+void createCube( vector<cv::Point3d> &cube, int scalex, int scaley, int scalez, int x, int y, int z ){
+  cube.push_back( cv::Point3d( x , -1 * y , z  ));
+  cube.push_back( cv::Point3d( x + 1 * scalex, -1 * y, z  ));
+  cube.push_back( cv::Point3d( x , y - 1 * scaley, z));
+  cube.push_back( cv::Point3d( x + 1 * scalex, y - 1 * scaley, z ));
+  
+  cube.push_back( cv::Point3d( x + 1 * scalex, -1 * y, (z + 1) * scalez));
+  cube.push_back( cv::Point3d( x , -1 * y, z + 1 * scalez));
+  cube.push_back( cv::Point3d( x , y - 1 * scaley, z + 1 * scalez));
+  cube.push_back( cv::Point3d( x + 1 * scalex, y - 1 * scaley, z + 1 * scalez));
+}
+
+void drawCube( cv::Mat frame, vector<cv::Point2d> imgCube, cv::Scalar color ){
+  cv::line( frame, imgCube[0], imgCube[1], color, 2 );
+  cv::line( frame, imgCube[0], imgCube[2], color, 2 );
+  cv::line( frame, imgCube[2], imgCube[3], color, 2 );
+  cv::line( frame, imgCube[3], imgCube[1], color, 2 );
+  cv::line( frame, imgCube[1], imgCube[4], color, 2 );
+  cv::line( frame, imgCube[0], imgCube[5], color, 2 );
+  cv::line( frame, imgCube[2], imgCube[6], color, 2 );
+  cv::line( frame, imgCube[3], imgCube[7], color, 2 );
+  cv::line( frame, imgCube[4], imgCube[5], color, 2 );
+  cv::line( frame, imgCube[5], imgCube[6], color, 2 );
+  cv::line( frame, imgCube[6], imgCube[7], color, 2 );
+  cv::line( frame, imgCube[7], imgCube[4], color, 2 );
+	
+}
+
+void cube(cv::Mat frame, cv::Mat rotation, cv::Mat translation, cv::Mat camMat, cv::Mat distortion, int scalex, int scaley, int scalez, int x, int y, int z, cv::Scalar color ){
+ // Draw a cube!!
+  vector<cv::Point3d> cube;
+  vector<cv::Point2d> imgCube;
+  
+  // create unit cube at origin
+  createCube(cube, scalex, scaley, scalez, x, y, z);
+  cv::projectPoints( cube, rotation, translation, camMat, distortion, imgCube);
+  drawCube( frame, imgCube, color );
+  
+  cube.clear();
+  imgCube.clear();
+}
+
+void drawAxes( cv::Mat frame, cv::Mat rotations, cv::Mat translation, cv::Mat camMat, cv::Mat distortion){
+	  // Draw the coordinate axes, remember y is negative direction
+	  vector<cv::Point3d> axes;
+	  axes.push_back( cv::Point3d( 0, 0, 0) );
+	  axes.push_back( cv::Point3d( 2, 0, 0) );
+	  axes.push_back( cv::Point3d( 0, -2, 0) );
+	  axes.push_back( cv::Point3d( 0, 0, 2) );
+	 
+	  vector<cv::Point2d> imgAxes; 
+	  //cout<< "points" << endl << axes << endl;
+	  cv::projectPoints( axes, rotations, translation, camMat, distortion, imgAxes);
+
+	  //cout<< "resulting points"<< endl << imgAxes << endl; 
+	  cv::line( frame, imgAxes[0], imgAxes[1], cv::Scalar(0, 255, 0), 2 );
+	  cv::line( frame, imgAxes[0], imgAxes[2], cv::Scalar(255, 0, 0), 2 );
+	  cv::line( frame, imgAxes[0], imgAxes[3], cv::Scalar(0, 0, 255), 2 );
+}
+
+  
 
 int main(int argc, char *argv[]) {
 
@@ -69,8 +134,8 @@ int main(int argc, char *argv[]) {
   }
     
   //Open image stream
-  //capdev = new cv::VideoCapture(0); //Torrie
-  capdev = new cv::VideoCapture(1); //Jack
+  capdev = new cv::VideoCapture(0); //Torrie
+  //capdev = new cv::VideoCapture(1); //Jack
   if(!capdev->isOpened()) {
     printf("Unable to open video device\n");
     return -1;
@@ -162,9 +227,11 @@ int main(int argc, char *argv[]) {
       }
     
       //Smile for the writeup!
-      //cout << "Number of corners: " << corners.size() << endl;
+      if( writeup && found ){
+	cout << "Number of corners: " << corner_set.size() << endl;
+	cout << "Coords of first corner: (" << corner_set[0].x << ", " << corner_set[0].y << ")" << endl;
+      }
       if(found) {
-	//cout << "Coords of first corner: (" << corners[0].x << ", " << corners[0].y << ")" << endl;
 	numFramesCaptured++;
 	printf("Valid frame captured! You now have %d out of 5 required images\n", numFramesCaptured);
 
@@ -218,8 +285,8 @@ int main(int argc, char *argv[]) {
 	cv::cornerSubPix(gray, corner_set, cv::Size(17, 13), cv::Size(-1, -1), cv::TermCriteria(cv::TermCriteria::EPS+cv::TermCriteria::MAX_ITER, 30, 0.1));
       }
     
-      //Draw the corners
-      drawChessboardCorners(frame, boardSize, cv::Mat(corner_set), found);
+      //Draw the corners ( not doing that in this portion of the pipeline ). 
+      //drawChessboardCorners(frame, boardSize, cv::Mat(corner_set), found);
     
       if(view.data == NULL) {
 	printf("NOOOOOOOOOOOOO\n");
@@ -227,21 +294,39 @@ int main(int argc, char *argv[]) {
       }
 
       if(found) {
-	// cout << "Camera Matrix:" << endl << camera_matrix << endl;
-	// cout << "Point List" << endl << point_list[0] << endl;
-	// cout << "Corner list" << endl << corner_list[0] << endl;
-	// cout << "Distortion" << endl << distortion << endl;
+	if( debug ){
+	  cout << "Camera Matrix:" << endl << camera_matrix << endl;
+	  cout << "Point List" << endl << point_list[0] << endl;
+	  cout << "Corner list" << endl << corner_list[0] << endl;
+	  cout << "Distortion" << endl << distortion << endl;
+	}
 	bool success = cv::solvePnP(board_worldCoords, corner_set, camera_matrix, distortion, m_rotations, m_translations);
 	if(success) {
-	  printf("We did it!\n");
-	  // printf("It was a success! %lu rotation matrices, %lu translation matrices\n", rotations.size(), translations.size());
+	  if( debug ){
+	    printf("We did it!\n");
+	    printf("It was a success! %lu rotation matrices, %lu translation matrices\n", rotations.size(), translations.size());
+	    // print the results
+	    cout << "Rotation matrix:" << endl << m_rotations << endl;
+	    cout << "Translation matrix:" << endl << m_translations << endl;
+	  }
+	  if( writeup ){
+	    cout << "Rotation matrix:" << endl << m_rotations << endl;
+	    cout << "Translation matrix:" << endl << m_translations << endl;
+	    // drawAxes( frame, m_rotations, m_translations, camera_matrix, distortion);
+	  }
 	  
-	  cout << "Rotation matrix:" << endl << m_rotations << endl;
-	  cout << "Translation matrix:" << endl << m_translations << endl;
+	  // Draw a cube!!
+	  cube(frame, m_rotations, m_translations, camera_matrix, distortion, 1, 1, 1 ,0, 0, 0, cv::Scalar( 0, 255, 0));
+	  cube(frame, m_rotations, m_translations, camera_matrix, distortion, 2, 2, 2, 1, 0, 0, cv::Scalar( 0, 255, 255));
+	  cube(frame, m_rotations, m_translations, camera_matrix, distortion, 3, 3, 3, 4, 0, 0, cv::Scalar( 255, 0, 255));
+
+	  // Draw rectangle Prisim
+	  cube(frame, m_rotations, m_translations, camera_matrix, distortion, 1, 2, 1 ,0, 5, 0, cv::Scalar( 255, 0, 0));
+	  cube(frame, m_rotations, m_translations, camera_matrix, distortion, 5, 3, 1, 1, 6, 0, cv::Scalar( 180,180 , 0));
+	  cube(frame, m_rotations, m_translations, camera_matrix, distortion, 4, 8, 4, 4, 2, 0, cv::Scalar( 0, 0, 255));
+	  
 	}
       }
-
-
       break;
     }
     }
