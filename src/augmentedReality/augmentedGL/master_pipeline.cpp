@@ -237,10 +237,10 @@ void display( ){
 
   if( calibrated ){
     glPushMatrix();
-    glTranslatef(translation.at<double>(0,0), translation.at<double>(1, 0), translation.at<double>(2, 0));
+    //glTranslatef(translation.at<double>(0,0), translation.at<double>(1, 0), translation.at<double>(2, 0));
     // from our rotation: sqrt( r1^2 + r2^2 + r3^2 );
-    float rTheta = sqrt( rotation.at<double>(0,0) * rotation.at<double>(0,0) + rotation.at<double>(1,0) * rotation.at<double>(1,0) + rotation.at<double>(2,0) *rotation.at<double>(2,0)); 
-    glRotate(rTheta, rotation.at<double>(0, 0), rotation.at<double>(1,0),rotation.at<double>(2,0));
+    //float rTheta = sqrt( rotation.at<double>(0,0) * rotation.at<double>(0,0) + rotation.at<double>(1,0) * rotation.at<double>(1,0) + rotation.at<double>(2,0) *rotation.at<double>(2,0)); 
+    //glRotate(rTheta, rotation.at<double>(0, 0), rotation.at<double>(1,0),rotation.at<double>(2,0));
     
     gluSolidTeapot( 0.5 );
     
