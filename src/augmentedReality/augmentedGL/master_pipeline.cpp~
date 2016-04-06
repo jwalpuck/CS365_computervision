@@ -3,6 +3,7 @@
  * 3/29/15
  * Torrie Edwards, Jack Walpuck
  *
+ * Contains code to run the main mothafucka
  */
 
 #include <cstdio>
