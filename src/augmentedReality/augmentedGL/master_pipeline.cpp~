@@ -1,0 +1,339 @@
+/**
+ * master_pipeline.cpp
+ * 3/29/15
+ * Torrie Edwards, Jack Walpuck
+ *
+ * Contains code to run the main mothafucka
+ */
+
+#include <cstdio>
+#include <iostream>
+#include <fstream>
+#include <stdlib.h>
+#include "opencv2/opencv.hpp"
+#include "master_pipeline.h"
+
+using namespace std;
+
+#define debug 0
+#define writeup 0
+
+void writeIntrinsicParams(char *filename, cv::Mat camera_matrix, cv::Mat distortion) {
+  
+  FILE *file = fopen(filename, "w+");
+  char l1[255] = "CAMERA MATRIX\n";
+  char l2[255] = "DISTORTION\n";
+  char space = ' ';
+
+  fwrite(l1, sizeof(char), 255,file); 
+  for(int i = 0 ; i < 3; i++) {
+    for(int j = 0; j < 3; j++) {
+      fwrite(&camera_matrix.at<double>(i, j), sizeof(double), 1, file);
+    }
+  }
+
+  fwrite(l2, sizeof(char), 255, file );
+  for(int i = 0; i < 5; i++) {
+    fwrite(&distortion.at<double>(i, 0), sizeof(double), 1, file );
+  }
+  
+  fclose(file);
+  printf("Parameters written to file %s\n", filename);
+}
+
+void createCube( vector<cv::Point3d> &cube, int scalex, int scaley, int scalez, int x, int y, int z ){
+  cube.push_back( cv::Point3d( x , -1 * y , z  ));
+  cube.push_back( cv::Point3d( x + 1 * scalex, -1 * y, z  ));
+  cube.push_back( cv::Point3d( x , y - 1 * scaley, z));
+  cube.push_back( cv::Point3d( x + 1 * scalex, y - 1 * scaley, z ));
+  
+  cube.push_back( cv::Point3d( x + 1 * scalex, -1 * y, (z + 1) * scalez));
+  cube.push_back( cv::Point3d( x , -1 * y, z + 1 * scalez));
+  cube.push_back( cv::Point3d( x , y - 1 * scaley, z + 1 * scalez));
+  cube.push_back( cv::Point3d( x + 1 * scalex, y - 1 * scaley, z + 1 * scalez));
+}
+
+void drawCube( cv::Mat frame, vector<cv::Point2d> imgCube, cv::Scalar color ){
+  cv::line( frame, imgCube[0], imgCube[1], color, 2 );
+  cv::line( frame, imgCube[0], imgCube[2], color, 2 );
+  cv::line( frame, imgCube[2], imgCube[3], color, 2 );
+  cv::line( frame, imgCube[3], imgCube[1], color, 2 );
+  cv::line( frame, imgCube[1], imgCube[4], color, 2 );
+  cv::line( frame, imgCube[0], imgCube[5], color, 2 );
+  cv::line( frame, imgCube[2], imgCube[6], color, 2 );
+  cv::line( frame, imgCube[3], imgCube[7], color, 2 );
+  cv::line( frame, imgCube[4], imgCube[5], color, 2 );
+  cv::line( frame, imgCube[5], imgCube[6], color, 2 );
+  cv::line( frame, imgCube[6], imgCube[7], color, 2 );
+  cv::line( frame, imgCube[7], imgCube[4], color, 2 );
+	
+}
+
+void cube(cv::Mat frame, cv::Mat rotation, cv::Mat translation, cv::Mat camMat, cv::Mat distortion, int scalex, int scaley, int scalez, int x, int y, int z, cv::Scalar color ){
+ // Draw a cube!!
+  vector<cv::Point3d> cube;
+  vector<cv::Point2d> imgCube;
+  
+  // create unit cube at origin
+  createCube(cube, scalex, scaley, scalez, x, y, z);
+  cv::projectPoints( cube, rotation, translation, camMat, distortion, imgCube);
+  drawCube( frame, imgCube, color );
+  
+  cube.clear();
+  imgCube.clear();
+}
+
+void drawAxes( cv::Mat frame, cv::Mat rotations, cv::Mat translation, cv::Mat camMat, cv::Mat distortion){
+	  // Draw the coordinate axes, remember y is negative direction
+	  vector<cv::Point3d> axes;
+	  axes.push_back( cv::Point3d( 0, 0, 0) );
+	  axes.push_back( cv::Point3d( 2, 0, 0) );
+	  axes.push_back( cv::Point3d( 0, -2, 0) );
+	  axes.push_back( cv::Point3d( 0, 0, 2) );
+	 
+	  vector<cv::Point2d> imgAxes; 
+	  //cout<< "points" << endl << axes << endl;
+	  cv::projectPoints( axes, rotations, translation, camMat, distortion, imgAxes);
+
+	  //cout<< "resulting points"<< endl << imgAxes << endl; 
+	  cv::line( frame, imgAxes[0], imgAxes[1], cv::Scalar(0, 255, 0), 2 );
+	  cv::line( frame, imgAxes[0], imgAxes[2], cv::Scalar(255, 0, 0), 2 );
+	  cv::line( frame, imgAxes[0], imgAxes[3], cv::Scalar(0, 0, 255), 2 );
+}
+
+  
+
+int main(int argc, char *argv[]) {
+
+  //Put code temporarily here to get intial calibration done
+  //Jack will go back later and put it all in a video stream loop
+
+  cv::VideoCapture *capdev;
+  bool found, calibrated;
+  const char static_img[255] = "../../images/checkerboard.png";
+  const char stream_label[255] = "Augmented Reality";
+  cv::Mat view = cv::imread(static_img);
+  cv::Mat gray, camera_matrix, distortion;
+  vector<cv::Mat> rotations;
+  vector<cv::Mat> translations;
+  cv::cvtColor(view, gray, cv::COLOR_BGR2GRAY);
+  cv::Size boardSize(8, 6);
+  vector<cv::Point2f> corners;
+  int keyPress, numFramesCaptured;
+  State state = idle;
+  vector<cv::Point2f> corner_set; //We were using Vec2f
+  vector<vector<cv::Point2f > > corner_list; //We were using Vec2f
+  vector<vector<cv::Point3f > > point_list;
+  //Make a static set of points for the world coordinates of the checkerboard
+  //We are using units of checkerboard spaces (assuming they are of uniform size)
+  vector<cv::Point3f> board_worldCoords;
+  for(int i = 0; i > -6; i--) {
+    for(int j = 0; j < 8; j++) {
+      board_worldCoords.push_back(cv::Point3f(j, i, 0));
+    }
+  }
+    
+  //Open image stream
+  capdev = new cv::VideoCapture(0); //Torrie
+  //capdev = new cv::VideoCapture(1); //Jack
+  if(!capdev->isOpened()) {
+    printf("Unable to open video device\n");
+    return -1;
+  }
+
+  //Open the viewing window
+  cv::namedWindow(stream_label, 1);
+
+  //Main loop
+  numFramesCaptured = 0, calibrated = 0;
+  do {
+    keyPress = cv::waitKey(10);
+
+    //Set state based on keypress
+    switch(keyPress) {
+    case 115: { //User presses s: capture
+      state = capture;
+      break;
+    }
+    case 119: { //User presses w: Write the intrinsic parameters (camera mat, dist) to a file
+      if(!calibrated) {
+	printf("You must calibrate the camera :)\n");
+	break;
+      }
+      string filename;
+      char c_filename[255];
+      ostream *fout;
+
+      printf("Please enter a filename to print the intrinsic parameters to: \n");
+      getline(cin, filename);
+      //Copy into a cstring
+      size_t ddd = filename.copy(c_filename, filename.size(), 0);
+      writeIntrinsicParams(c_filename, camera_matrix, distortion);
+      break;
+    }
+    case 99: { //User presses c: calibrate
+      if(numFramesCaptured < 5) {
+	printf("You need to capture at least 5 frames before calibrating\n");
+	state = idle;
+      }
+      else {
+	state = calibrate;
+      }
+      break;
+    }
+    case 114: { //User presses r: reset -- clear all of the saved vectors
+      point_list.clear();
+      corner_list.clear();
+      calibrated = 0;
+      numFramesCaptured = 0;
+      state = idle;
+      break;
+    }
+    case 100: { //User presses d: draw
+      if(calibrated) //We cannot draw anything onto the image before it is calibrated
+	if(state == draw)
+	  state = idle;
+	else
+	  state = draw;
+      else
+	printf("Must calibrate before attempting to draw\n");
+      break;
+    }
+    }
+
+    //Get image
+    cv::Mat frame;
+    *capdev >> frame;
+    cv::cvtColor(frame, gray, cv::COLOR_BGR2GRAY);
+
+    switch(state) {
+    case idle: {
+      break;
+    }
+
+    case capture: {
+      //CALIB_CB_FAST_CHECK quickly sees if there is a checkerboard in the image
+      found = cv::findChessboardCorners( frame, boardSize, corner_set, cv::CALIB_CB_FAST_CHECK);
+      if(found) {
+	cv::cornerSubPix(gray, corner_set, cv::Size(17, 13), cv::Size(-1, -1), cv::TermCriteria(cv::TermCriteria::EPS+cv::TermCriteria::MAX_ITER, 30, 0.1));
+      }
+    
+      //Draw the corners
+      drawChessboardCorners(frame, boardSize, cv::Mat(corner_set), found);
+    
+      if(view.data == NULL) {
+	printf("NOOOOOOOOOOOOO\n");
+	return -1;
+      }
+    
+      //Smile for the writeup!
+      if( writeup && found ){
+	cout << "Number of corners: " << corner_set.size() << endl;
+	cout << "Coords of first corner: (" << corner_set[0].x << ", " << corner_set[0].y << ")" << endl;
+      }
+      if(found) {
+	numFramesCaptured++;
+	printf("Valid frame captured! You now have %d out of 5 required images\n", numFramesCaptured);
+
+	//Save corner locations and corresponding 3d world points
+	corner_list.push_back(corner_set);
+	point_list.push_back(board_worldCoords);
+	
+	cv::imshow(stream_label, frame);
+	cv::waitKey(500);
+      }
+
+      state = idle;
+      break;
+    }
+
+    case calibrate: {
+
+      //Create the point counts vector
+      vector<int> point_counts;
+      for(int i = 0; i < numFramesCaptured; i++) {
+    	point_counts.push_back(point_list[i].size());
+      }
+
+      //Build the camera matrix
+      camera_matrix = cv::Mat::eye(3, 3, CV_64FC1);
+      camera_matrix.at<double>(0, 2) = frame.cols/2;
+      camera_matrix.at<double>(1, 2) = frame.rows/2;
+
+      cout << "Original camera matrix:" << endl << camera_matrix << endl;
+
+      //Make vectors to be filled by the calibrate camera function
+      distortion = cv::Mat::zeros(5, 1, CV_64F);
+
+      //NOTE: May need to use point_counts vector
+      double err = cv::calibrateCamera(point_list, corner_list, frame.size(), camera_matrix, distortion, rotations, translations);
+
+      cout << "New camera matrix: " << endl << camera_matrix << endl;
+      printf("Error is: %f\n", err);
+      cout << "Distortion " << endl << distortion << endl;
+
+      calibrated = 1;
+      state = idle;
+      break;
+    }
+
+    case draw: {
+      cv::Mat m_rotations = cv::Mat::zeros(3, 1, CV_64FC1);
+      cv::Mat m_translations = cv::Mat::zeros(3, 1, CV_64FC1);
+      found = cv::findChessboardCorners( frame, boardSize, corner_set, cv::CALIB_CB_FAST_CHECK);
+      if(found) {
+	cv::cornerSubPix(gray, corner_set, cv::Size(17, 13), cv::Size(-1, -1), cv::TermCriteria(cv::TermCriteria::EPS+cv::TermCriteria::MAX_ITER, 30, 0.1));
+      }
+    
+      //Draw the corners ( not doing that in this portion of the pipeline ). 
+      //drawChessboardCorners(frame, boardSize, cv::Mat(corner_set), found);
+    
+      if(view.data == NULL) {
+	printf("NOOOOOOOOOOOOO\n");
+	return -1;
+      }
+
+      if(found) {
+	if( debug ){
+	  cout << "Camera Matrix:" << endl << camera_matrix << endl;
+	  cout << "Point List" << endl << point_list[0] << endl;
+	  cout << "Corner list" << endl << corner_list[0] << endl;
+	  cout << "Distortion" << endl << distortion << endl;
+	}
+	bool success = cv::solvePnP(board_worldCoords, corner_set, camera_matrix, distortion, m_rotations, m_translations);
+	if(success) {
+	  if( debug ){
+	    printf("We did it!\n");
+	    printf("It was a success! %lu rotation matrices, %lu translation matrices\n", rotations.size(), translations.size());
+	    // print the results
+	    cout << "Rotation matrix:" << endl << m_rotations << endl;
+	    cout << "Translation matrix:" << endl << m_translations << endl;
+	  }
+	  if( writeup ){
+	    cout << "Rotation matrix:" << endl << m_rotations << endl;
+	    cout << "Translation matrix:" << endl << m_translations << endl;
+	    // drawAxes( frame, m_rotations, m_translations, camera_matrix, distortion);
+	  }
+	  
+	  // Draw a cube!!
+	  cube(frame, m_rotations, m_translations, camera_matrix, distortion, 1, 1, 1 ,0, 0, 0, cv::Scalar( 0, 255, 0));
+	  cube(frame, m_rotations, m_translations, camera_matrix, distortion, 2, 2, 2, 1, 0, 0, cv::Scalar( 0, 255, 255));
+	  cube(frame, m_rotations, m_translations, camera_matrix, distortion, 3, 3, 3, 4, 0, 0, cv::Scalar( 255, 0, 255));
+
+	  // Draw rectangle Prisim
+	  cube(frame, m_rotations, m_translations, camera_matrix, distortion, 1, 2, 1 ,0, 5, 0, cv::Scalar( 255, 0, 0));
+	  cube(frame, m_rotations, m_translations, camera_matrix, distortion, 5, 3, 1, 1, 6, 0, cv::Scalar( 180,180 , 0));
+	  cube(frame, m_rotations, m_translations, camera_matrix, distortion, 4, 8, 4, 4, 2, 0, cv::Scalar( 0, 0, 255));
+	  
+	}
+      }
+      break;
+    }
+    }
+
+    //Display the image
+    cv::imshow(stream_label, frame);
+	       
+  }while(keyPress != 27);
+  return 0;
+}
