@@ -18,14 +18,16 @@
 
 using namespace std;
 
-#define debug 0
+#define debug 1
 #define writeup 0
 
-State state;
+State state = idle;
 bool calibrated = 0;
 int  numFramesCaptured = 0;
-cv::Mat frame;
+cv::Mat frame,  camera_matrix, distortion;
 cv::VideoCapture *capdev = NULL;
+vector<vector<cv::Point2f > > corner_list;
+vector<vector<cv::Point3f > > point_list;
 
 void writeIntrinsicParams(char *filename, cv::Mat camera_matrix, cv::Mat distortion) {
   
@@ -53,7 +55,7 @@ void writeIntrinsicParams(char *filename, cv::Mat camera_matrix, cv::Mat distort
 
 // Do this with opengl things...
 void drawAxes( float length){
-  glPushAttrib( GL_POLYGON_BIT | GL_ENABLE_BIT | GL_COLOR_BIT );
+  glPushAttrib( GL_POLYGON_BIT | GL_ENABLE_BIT );//| GL_COLOR_BIT );
   glPolygonMode( GL_FRONT_AND_BACK, GL_LINE);
 
   glBegin(GL_LINES );
@@ -80,21 +82,20 @@ void display( ){
    bool found;
   const char static_img[255] = "../../images/checkerboard.png";
   const char stream_label[255] = "Augmented Reality";
-  cv::Mat view = cv::imread(static_img);
-  cv::Mat gray, camera_matrix, distortion;
+  // cv::Mat view = cv::imread(static_img);
+  cv::Mat gray;
   vector<cv::Mat> rotations;
   vector<cv::Mat> translations;
-  cv::cvtColor(view, gray, cv::COLOR_BGR2GRAY);
+  //cv::cvtColor(view, gray, cv::COLOR_BGR2GRAY);
   cv::Size boardSize(8, 6);
   vector<cv::Point2f> corners;
-  int keyPress, numFramesCaptured;
-  State state = idle;
+  int keyPress;
   vector<cv::Point2f> corner_set; //We were using Vec2f
-  vector<vector<cv::Point2f > > corner_list; //We were using Vec2f
-  vector<vector<cv::Point3f > > point_list;
   //Make a static set of points for the world coordinates of the checkerboard
   //We are using units of checkerboard spaces (assuming they are of uniform size)
   vector<cv::Point3f> board_worldCoords;
+  cv::Mat m_rotations = cv::Mat::zeros(3, 1, CV_64FC1);
+  cv::Mat m_translations = cv::Mat::zeros(3, 1, CV_64FC1);
   for(int i = 0; i > -6; i--) {
     for(int j = 0; j < 8; j++) {
       board_worldCoords.push_back(cv::Point3f(j, i, 0));
@@ -102,7 +103,18 @@ void display( ){
   }
     
 
+  if(!frame.data) {
+    printf("llll\n");
+    exit(-1);
+  }
   cv::cvtColor(frame, gray, cv::COLOR_BGR2GRAY);
+
+  // clear the window
+  glClear( GL_COLOR_BUFFER_BIT );
+
+  cv::Mat flipped; 
+  cv::flip(frame, flipped, 0 );
+  glDrawPixels( flipped.size().width, flipped.size().height, GL_BGR, GL_UNSIGNED_BYTE, flipped.ptr() );
   
   switch(state) {
   case idle: {
@@ -110,19 +122,16 @@ void display( ){
   }
 
   case capture: {
-    //CALIB_CB_FAST_CHECK quickly sees if there is a checkerboard in the image
     found = cv::findChessboardCorners( frame, boardSize, corner_set, cv::CALIB_CB_FAST_CHECK);
       if(found) {
 	cv::cornerSubPix(gray, corner_set, cv::Size(17, 13), cv::Size(-1, -1), cv::TermCriteria(cv::TermCriteria::EPS+cv::TermCriteria::MAX_ITER, 30, 0.1));
       }
+      if(!found) {
+	printf(":(\n");
+      }
     
       //Draw the corners
       drawChessboardCorners(frame, boardSize, cv::Mat(corner_set), found);
-    
-      if(view.data == NULL) {
-	printf("NOOOOOOOOOOOOO\n");
-	return -1;
-      }
     
       //Smile for the writeup!
       if( writeup && found ){
@@ -137,8 +146,6 @@ void display( ){
 	corner_list.push_back(corner_set);
 	point_list.push_back(board_worldCoords);
 	
-	cv::imshow(stream_label, frame);
-	cv::waitKey(500);
       }
 
       state = idle;
@@ -147,11 +154,8 @@ void display( ){
 
     case calibrate: {
 
-      //Create the point counts vector
-      vector<int> point_counts;
-      for(int i = 0; i < numFramesCaptured; i++) {
-    	point_counts.push_back(point_list[i].size());
-      }
+      printf("Attempting to calibrate\n");
+      
 
       //Build the camera matrix
       camera_matrix = cv::Mat::eye(3, 3, CV_64FC1);
@@ -159,10 +163,10 @@ void display( ){
       camera_matrix.at<double>(1, 2) = frame.rows/2;
 
       cout << "Original camera matrix:" << endl << camera_matrix << endl;
-
+      
       //Make vectors to be filled by the calibrate camera function
       distortion = cv::Mat::zeros(5, 1, CV_64F);
-
+      
       //NOTE: May need to use point_counts vector
       double err = cv::calibrateCamera(point_list, corner_list, frame.size(), camera_matrix, distortion, rotations, translations);
 
@@ -176,17 +180,11 @@ void display( ){
     }
 
     case draw: {
-      cv::Mat m_rotations = cv::Mat::zeros(3, 1, CV_64FC1);
-      cv::Mat m_translations = cv::Mat::zeros(3, 1, CV_64FC1);
       found = cv::findChessboardCorners( frame, boardSize, corner_set, cv::CALIB_CB_FAST_CHECK);
       if(found) {
 	cv::cornerSubPix(gray, corner_set, cv::Size(17, 13), cv::Size(-1, -1), cv::TermCriteria(cv::TermCriteria::EPS+cv::TermCriteria::MAX_ITER, 30, 0.1));
       }
-    
-      if(view.data == NULL) {
-	printf("NOOOOOOOOOOOOO\n");
-	return -1;
-      }
+
 
       if(found) {
 	if( debug ){
@@ -207,45 +205,57 @@ void display( ){
 	  
 	}
       }
+
+      glViewport(0, 0, flipped.size().width, flipped.size().height );
+
+      glMatrixMode(GL_PROJECTION);
+      glLoadIdentity();
+
+      // intrinsic camera parameters determine the parameters here:
+      // GLdouble fovy,  GLdouble aspect
+      //GLdouble fovy = 2*atan(0.5 * camera_matrix.at<double>(1, 1));
+      GLdouble fovy = 60;
+      GLdouble aspect = camera_matrix.at<double>(0, 0) / camera_matrix.at<double>(1, 1);
+  
+      // GLdouble zNear,  GLdouble zFar: used arbitrary values because we
+      //  do not have a clipping plane. 
+      gluPerspective( fovy, aspect, 1, 50);
+
+      glMatrixMode( GL_MODELVIEW );
+      glLoadIdentity();
+      //gluLookAt( 1, 1, 4, camera_matrix.at<double>(0,2), camera_matrix.at<double>(1,2), 0, 0, 0, 1);
+      gluLookAt( 1, 1, 10, 0, 0, 0, 0, 1, 0); 
+      //gluLookAt( 0, 0, 4, 0, 0, 0, 0, 1, 0);
+      
+      if( calibrated ){
+	glPushMatrix();
+	// from our rotation: sqrt( r1^2 + r2^2 + r3^2 );
+	//drawAxes( 1 );
+	//float rTheta = sqrt( m_rotations.at<double>(0,0) * m_rotations.at<double>(0,0) + m_rotations.at<double>(1,0) * m_rotations.at<double>(1,0) + m_rotations.at<double>(2,0) * m_rotations.at<double>(2,0));
+	cv::Mat rTheta= cv::Mat::zeros( 3, 3, CV_64FC1);
+	cv::Rodrigues( m_rotations, rTheta );  
+	GLdouble rt[16] = { rTheta.at<double>(0,0), -rTheta.at<double>(0,1), -rTheta.at<double>(0,2), 0,
+			 rTheta.at<double>(1,0), -rTheta.at<double>(1,1), -rTheta.at<double>(1,2), 0,
+			 rTheta.at<double>(2,0), -rTheta.at<double>(2,1), -rTheta.at<double>(2,2), 0,
+			 m_translations.at<double>(0,0), -m_translations.at<double>(1,0), -m_translations.at<double>(2,0), 1 };
+	printf(" RT MATRIX\n");
+        for( int i = 0; i < 16; i+=4){
+	  printf("%f %f %f %f \n", rt[0 + i], rt[1+i], rt[2+i], rt[3 + i]);
+	}
+	glLoadMatrixd( rt ); 
+	//glRotatef(rTheta, m_rotations.at<double>(0, 0), m_rotations.at<double>(2,0), m_rotations.at<double>(1,0));
+    
+	//glTranslatef(m_translations.at<double>(0,0), m_translations.at<double>(1, 0), m_translations.at<double>(2, 0));
+	//glTranslatef(m_translations.at<double>(0,0),m_translations.at<double>(1, 0),0);
+
+	//drawAxes( 3 );
+	glutSolidTeapot( 0.5 );
+    
+	glPopMatrix();
+      }
       break;
     }
     }
-  // clear the window
-  glClear( GL_COLOR_BUFFER_BIT );
-
-  cv::Mat flipped; 
-  cv::flip(frame, flipped, 0 );
-  glDrawPixels( flipped.size().width, flipped.size().height, GL_BGR, GL_UNSIGNED_BYTE, flipped.ptr() ); 
-
-  glViewport(0, 0, flipped.size().width, flipped.size().height );
-
-  glMatrixMode(GL_PROJECTION);
-  glLoadIdentity();
-
-  // intrinsic camera parameters determine the parameters here:
-  // GLdouble fovy,  GLdouble aspect
-  GLdouble fovy = cameraMatrix.at<double>(1, 1); 
-  GLdouble aspect = cameraMatrix.at<double>(0, 2) / cameraMatrix.at<double>(1, 2);
-  
-  // GLdouble zNear,  GLdouble zFar: used arbitrary values because we
-  //  do not have a clipping plane. 
-  gluPerspective( fovy, aspect, 1, 20);
-
-  glMatrixMode( GL_MODELVIEW );
-  glLoadIdentity();
-  glLookAt( 0, 0, 5, 0, 0, 0, 0, 1, 0); 
-
-  if( calibrated ){
-    glPushMatrix();
-    //glTranslatef(translation.at<double>(0,0), translation.at<double>(1, 0), translation.at<double>(2, 0));
-    // from our rotation: sqrt( r1^2 + r2^2 + r3^2 );
-    //float rTheta = sqrt( rotation.at<double>(0,0) * rotation.at<double>(0,0) + rotation.at<double>(1,0) * rotation.at<double>(1,0) + rotation.at<double>(2,0) *rotation.at<double>(2,0)); 
-    //glRotate(rTheta, rotation.at<double>(0, 0), rotation.at<double>(1,0),rotation.at<double>(2,0));
-    
-    gluSolidTeapot( 0.5 );
-    
-    glPopMatrix();
-  }
   
   glutSwapBuffers( );
   glutPostRedisplay(); 
@@ -273,22 +283,7 @@ void keyboard( unsigned char key, int x, int y ){
   }
   case 115: { //User presses s: capture
     state = capture;
-    break;
-  }
-  case 119: { //User presses w: Write the intrinsic parameters (camera mat, dist) to a file
-    if(!calibrated) {
-      printf("You must calibrate the camera :)\n");
-      break;
-    }
-    string filename;
-    char c_filename[255];
-    ostream *fout;
-
-    printf("Please enter a filename to print the intrinsic parameters to: \n");
-    getline(cin, filename);
-    //Copy into a cstring
-    size_t ddd = filename.copy(c_filename, filename.size(), 0);
-    writeIntrinsicParams(c_filename, camera_matrix, distortion);
+    printf("Capturing\n");
     break;
   }
   case 99: { //User presses c: calibrate
@@ -299,14 +294,6 @@ void keyboard( unsigned char key, int x, int y ){
     else {
       state = calibrate;
     }
-    break;
-  }
-  case 114: { //User presses r: reset -- clear all of the saved vectors
-    point_list.clear();
-    corner_list.clear();
-    calibrated = 0;
-    numFramesCaptured = 0;
-    state = idle;
     break;
   }
   case 100: { //User presses d: draw
@@ -324,7 +311,7 @@ void keyboard( unsigned char key, int x, int y ){
   }
 }
 
-void idle( ){
+void m_idle( ){
  
   *capdev >> frame;
 }
@@ -344,9 +331,11 @@ int main(int argc, char *argv[]) {
     printf("Unable to open video device\n");
     return -1;
   }
+
+  *capdev >> frame;
    
   glutInit( &argc, argv );
-  glutInitDisplayMode( GLUT_RGBA |GLUE_DOUBLE );
+  glutInitDisplayMode( GLUT_RGBA | GLUT_DOUBLE );
   glutInitWindowPosition( 20, 20 );
   glutInitWindowSize( frame.size().width, frame.size().height );
   glutCreateWindow( "OpenGL/ OpenCV Calibration");
@@ -355,9 +344,10 @@ int main(int argc, char *argv[]) {
   glutReshapeFunc( reshape );
   glutMouseFunc( mouse );
   glutKeyboardFunc( keyboard );
-  glutIdleFunc( idle );
+  glutIdleFunc( m_idle );
   
   glutMainLoop( ); 
   
   return( 0 );
 }
+
