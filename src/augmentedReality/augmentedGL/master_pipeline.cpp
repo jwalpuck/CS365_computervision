@@ -15,10 +15,9 @@
 #include <GL/glu.h>
 #include <GL/glut.h>
 
-
 using namespace std;
 
-#define debug 1
+#define debug 0
 #define writeup 0
 
 State state = idle;
@@ -30,20 +29,15 @@ vector<vector<cv::Point2f > > corner_list;
 vector<vector<cv::Point3f > > point_list;
 
 void writeIntrinsicParams(char *filename, cv::Mat camera_matrix, cv::Mat distortion) {
-  
+     
   FILE *file = fopen(filename, "w+");
-  char l1[255] = "CAMERA MATRIX\n";
-  char l2[255] = "DISTORTION\n";
-  char space = ' ';
 
-  fwrite(l1, sizeof(char), 255,file); 
   for(int i = 0 ; i < 3; i++) {
     for(int j = 0; j < 3; j++) {
       fwrite(&camera_matrix.at<double>(i, j), sizeof(double), 1, file);
     }
   }
 
-  fwrite(l2, sizeof(char), 255, file );
   for(int i = 0; i < 5; i++) {
     fwrite(&distortion.at<double>(i, 0), sizeof(double), 1, file );
   }
@@ -52,6 +46,24 @@ void writeIntrinsicParams(char *filename, cv::Mat camera_matrix, cv::Mat distort
   printf("Parameters written to file %s\n", filename);
 }
 
+void readIntrinsicParameters(char *filename, cv::Mat &camera_matrix, cv::Mat &distortion ){
+     
+  FILE *file = fopen(filename, "r");
+
+  for(int i = 0 ; i < 3; i++) {
+    for(int j = 0; j < 3; j++) {
+      fread(&camera_matrix.at<double>(i, j), sizeof(double), 1, file);
+    }
+  }
+
+  for(int i = 0; i < 5; i++) {
+    fread(&distortion.at<double>(i, 0), sizeof(double), 1, file );
+  }
+  
+  fclose(file);
+  printf("Parameters read to file %s\n", filename);
+}
+  
 
 // Do this with opengl things...
 void drawAxes( float length){
@@ -96,6 +108,10 @@ void display( ){
   vector<cv::Point3f> board_worldCoords;
   cv::Mat m_rotations = cv::Mat::zeros(3, 1, CV_64FC1);
   cv::Mat m_translations = cv::Mat::zeros(3, 1, CV_64FC1);
+  
+  GLfloat blue[] = {0.0f, 0.0f, 1.0f};
+  GLfloat position[] = {0.0, 0.0, 0.0, 1.0};
+  
   for(int i = 0; i > -6; i--) {
     for(int j = 0; j < 8; j++) {
       board_worldCoords.push_back(cv::Point3f(j, i, 0));
@@ -110,8 +126,9 @@ void display( ){
   cv::cvtColor(frame, gray, cv::COLOR_BGR2GRAY);
 
   // clear the window
-  glClear( GL_COLOR_BUFFER_BIT );
-
+  glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
+  glColor3f(1.0, 1.0, 1.0);
+  
   cv::Mat flipped; 
   cv::flip(frame, flipped, 0 );
   glDrawPixels( flipped.size().width, flipped.size().height, GL_BGR, GL_UNSIGNED_BYTE, flipped.ptr() );
@@ -212,8 +229,6 @@ void display( ){
       glLoadIdentity();
 
       // intrinsic camera parameters determine the parameters here:
-      // GLdouble fovy,  GLdouble aspect
-      //GLdouble fovy = 2*atan(0.5 * camera_matrix.at<double>(1, 1));
       GLdouble fovy = 60;
       GLdouble aspect = camera_matrix.at<double>(0, 0) / camera_matrix.at<double>(1, 1);
   
@@ -223,43 +238,71 @@ void display( ){
 
       glMatrixMode( GL_MODELVIEW );
       glLoadIdentity();
-      //gluLookAt( 1, 1, 4, camera_matrix.at<double>(0,2), camera_matrix.at<double>(1,2), 0, 0, 0, 1);
+      glLightfv(GL_LIGHT0, GL_POSITION, position);
       gluLookAt( 1, 1, 10, 0, 0, 0, 0, 1, 0); 
-      //gluLookAt( 0, 0, 4, 0, 0, 0, 0, 1, 0);
       
       if( calibrated ){
 	glPushMatrix();
-	// from our rotation: sqrt( r1^2 + r2^2 + r3^2 );
-	//drawAxes( 1 );
-	//float rTheta = sqrt( m_rotations.at<double>(0,0) * m_rotations.at<double>(0,0) + m_rotations.at<double>(1,0) * m_rotations.at<double>(1,0) + m_rotations.at<double>(2,0) * m_rotations.at<double>(2,0));
+	glMaterialfv( GL_FRONT, GL_DIFFUSE, blue); 
 	cv::Mat rTheta= cv::Mat::zeros( 3, 3, CV_64FC1);
 	cv::Rodrigues( m_rotations, rTheta );  
-	GLdouble rt[16] = { rTheta.at<double>(0,0), -rTheta.at<double>(0,1), -rTheta.at<double>(0,2), 0,
-			 rTheta.at<double>(1,0), -rTheta.at<double>(1,1), -rTheta.at<double>(1,2), 0,
-			 rTheta.at<double>(2,0), -rTheta.at<double>(2,1), -rTheta.at<double>(2,2), 0,
+	GLdouble rt[16] = { rTheta.at<double>(0,0), -rTheta.at<double>(0,2), -rTheta.at<double>(0,1), 0,
+			 rTheta.at<double>(1,0), -rTheta.at<double>(1,2), -rTheta.at<double>(1,1), 0,
+			 rTheta.at<double>(2,0), -rTheta.at<double>(2,2), -rTheta.at<double>(2,1), 0,
 			 m_translations.at<double>(0,0), -m_translations.at<double>(1,0), -m_translations.at<double>(2,0), 1 };
-	printf(" RT MATRIX\n");
-        for( int i = 0; i < 16; i+=4){
-	  printf("%f %f %f %f \n", rt[0 + i], rt[1+i], rt[2+i], rt[3 + i]);
+	if( debug ){
+	  printf(" RT MATRIX\n");
+	  for( int i = 0; i < 16; i+=4){
+	    printf("%f %f %f %f \n", rt[0 + i], rt[1+i], rt[2+i], rt[3 + i]);
+	  }
 	}
 	glLoadMatrixd( rt ); 
-	//glRotatef(rTheta, m_rotations.at<double>(0, 0), m_rotations.at<double>(2,0), m_rotations.at<double>(1,0));
-    
-	//glTranslatef(m_translations.at<double>(0,0), m_translations.at<double>(1, 0), m_translations.at<double>(2, 0));
-	//glTranslatef(m_translations.at<double>(0,0),m_translations.at<double>(1, 0),0);
 
 	//drawAxes( 3 );
-	glutSolidTeapot( 0.5 );
+	glutSolidTeapot( 2 );
     
 	glPopMatrix();
       }
       break;
     }
     }
-  
   glutSwapBuffers( );
   glutPostRedisplay(); 
 }
+
+// initialize the lighting and material color values
+void initlights(void) {
+  //GLfloat ambient[] = {0.1, 0.1, 0.1, 0.0};
+  //GLfloat diffuse[] = {1, 1, 1, 1.0};
+  //GLfloat specular[] = {1.0, 1.0, 1.0, 1.0};
+  //GLfloat position[] = {0.0, 0.0, 0.0, 1.0 };
+  //GLfloat mat_diffuse[] = {0.0, 0.4, 0.5, 1.0};
+  // GLfloat mat_specular[] = {1, 1, 0, 0};
+  //GLfloat mat_shininess[] = {50.0};
+
+  // glShadeModel( GL_SMOOTH );
+  //glEnable( GL_DEPTH_TEST );
+  // glEnable(GL_LIGHTING);
+  // glEnable(GL_LIGHT0);
+
+  //material values
+  //glMaterialfv(GL_FRONT, GL_DIFFUSE, mat_diffuse);
+  //glMaterialfv(GL_FRONT, GL_SPECULAR, mat_specular);
+  //glMaterialfv(GL_FRONT, GL_SHININESS, mat_shininess);
+
+  // generic lighting values
+  //glLightModeli(GL_LIGHT_MODEL_LOCAL_VIEWER, 1);
+  //glLightModelfv(GL_LIGHT_MODEL_AMBIENT, ambient);
+  
+  // specific light source
+  //glLightfv(GL_LIGHT0, GL_DIFFUSE, diffuse);
+  //glLightfv(GL_LIGHT0, GL_SPECULAR, specular );
+  //glLightfv(GL_LIGHT0, GL_POSITION, position ); 
+  // enable lighting, light0 and depth testing
+  //glEnable(GL_DEPTH_TEST);
+
+}
+
 
 
 void reshape( int w, int h ){
@@ -279,6 +322,32 @@ void keyboard( unsigned char key, int x, int y ){
   case 27:{
     // quit
     exit( 0 );
+    break;
+  }
+  case 119: { //User presses w: Write the intrinsic parameters (camera mat, dist) to a file
+      if(!calibrated) {
+	printf("You must calibrate the camera :)\n");
+	break;
+      }
+      string filename;
+      char c_filename[255];
+      ostream *fout;
+
+      printf("Please enter a filename to print the intrinsic parameters to: \n");
+      getline(cin, filename);
+      //Copy into a cstring
+      size_t ddd = filename.copy(c_filename, filename.size(), 0);
+      writeIntrinsicParams(c_filename, camera_matrix, distortion);
+      break;
+    }
+    
+  case 114:{ // read from a file
+    camera_matrix = cv::Mat::zeros( 3, 3, CV_64FC1);
+    distortion = cv::Mat::zeros(5, 1, CV_64F);
+    readIntrinsicParameters( "calibration.txt", camera_matrix, distortion );
+    cout<< "CALIBRATION: " << endl << camera_matrix << endl;
+    cout<< "DISTORITOIN: " << endl << distortion << endl;
+    calibrated = 1;
     break;
   }
   case 115: { //User presses s: capture
@@ -316,6 +385,17 @@ void m_idle( ){
   *capdev >> frame;
 }
 
+// init function
+void init(void) {
+	// background color
+  glClearColor(1.0, 1.0, 1.0, 1.0);
+
+	// whether shading is smooth or flat
+  glShadeModel(GL_SMOOTH);
+  initlights();
+
+}
+
 
 int main(int argc, char *argv[]) {
 
@@ -339,7 +419,8 @@ int main(int argc, char *argv[]) {
   glutInitWindowPosition( 20, 20 );
   glutInitWindowSize( frame.size().width, frame.size().height );
   glutCreateWindow( "OpenGL/ OpenCV Calibration");
-
+  init();
+  
   glutDisplayFunc( display );
   glutReshapeFunc( reshape );
   glutMouseFunc( mouse );
